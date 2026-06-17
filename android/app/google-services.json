@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "178357505476",
+    "project_id": "lunahealth-4a8ac",
+    "storage_bucket": "lunahealth-4a8ac.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:178357505476:android:6dd7ddb22a809b44522891",
+        "android_client_info": {
+          "package_name": "com.example.luna_health"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbEIcDsqJZjYZcCccykLvnzNeRNV_wPzo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

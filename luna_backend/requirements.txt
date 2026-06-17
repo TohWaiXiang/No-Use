@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+scikit-learn
+pandas
+numpy
+firebase-admin
+joblib
+python-dotenv
