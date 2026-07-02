@@ -40,29 +40,37 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final result = await AuthService.login(
-      email: _emailCtrl.text,
-      password: _passwordCtrl.text,
-    );
-
-    if (!mounted) return;
-
-    if (result['success']) {
-      final profile = await AuthService.getUserProfile();
-      if (profile != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('username', profile['username'] ?? 'User');
-        await prefs.setString('uid', profile['uid'] ?? '');
-      }
+    try {
+      final result = await AuthService.login(
+        email: _emailCtrl.text,
+        password: _passwordCtrl.text,
+      );
 
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainScaffold()),
-      );
-    } else {
+
+      if (result['success'] == true) {
+        final profile = await AuthService.getUserProfile();
+        if (profile != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('username', profile['username'] ?? 'User');
+          await prefs.setString('uid', profile['uid'] ?? '');
+        }
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainScaffold()),
+        );
+      } else {
+        setState(() {
+          _error = result['error'] ?? 'Login failed. Please try again.';
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = result['error'];
+        _error = 'Something went wrong. Please try again.';
         _loading = false;
       });
     }
@@ -89,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Image.asset('assets/logo.jpg', fit: BoxFit.cover),
+                  child: Image.asset('assets/Luna.png', fit: BoxFit.cover),
                 ),
               ),
               const SizedBox(height: 16),

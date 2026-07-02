@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -125,72 +125,133 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
     final name = prefs.getString('username') ?? 'User';
+    setState(() => _username = name);
 
-    // Load period history
-    final raw = prefs.getString('period_history_v2') ?? '[]';
-    final List decoded = jsonDecode(raw);
-    final history = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+    final uid = AuthService.userId;
+    if (uid.isEmpty) return;
 
-    // Load symptom logs
-    final symRaw = prefs.getString('symptom_logs') ?? '[]';
-    final List symDecoded = jsonDecode(symRaw);
-    final symLogs = symDecoded
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
+    try {
+      final db = FirebaseFirestore.instance;
 
-    // Load medication logs
-    final medRaw = prefs.getString('medication_logs') ?? '[]';
-    final List medDecoded = jsonDecode(medRaw);
-    final medLogs = medDecoded
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
+      // Load period history from Firestore
+      final periodSnap = await db
+          .collection('users')
+          .doc(uid)
+          .collection('period_history')
+          .orderBy('start')
+          .get();
+      final history = periodSnap.docs
+          .map((d) => Map<String, dynamic>.from(d.data()..['id'] = d.id))
+          .toList();
 
-    setState(() {
-      _username = name;
-      _periodHistory = history;
-      _symptomLogs = symLogs;
-      _medicationLogs = medLogs;
-    });
+      // Load symptom logs from Firestore
+      final symSnap = await db
+          .collection('users')
+          .doc(uid)
+          .collection('symptom_logs')
+          .orderBy('saved_at', descending: true)
+          .get();
+      final symLogs = symSnap.docs
+          .map((d) => Map<String, dynamic>.from(d.data()))
+          .toList();
 
-    if (history.isNotEmpty) _fetchPrediction();
+      // Load medication logs from Firestore
+      final medSnap = await db
+          .collection('users')
+          .doc(uid)
+          .collection('medication_logs')
+          .orderBy('saved_at', descending: true)
+          .get();
+      final medLogs = medSnap.docs
+          .map((d) => Map<String, dynamic>.from(d.data()))
+          .toList();
+
+      setState(() {
+        _periodHistory = history;
+        _symptomLogs = symLogs;
+        _medicationLogs = medLogs;
+      });
+
+      if (history.isNotEmpty) _fetchPrediction();
+    } catch (e) {
+      // Fallback to local cache
+      final raw = prefs.getString('period_history_v2') ?? '[]';
+      final List decoded = jsonDecode(raw);
+      setState(() {
+        _periodHistory = decoded
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      });
+      if (_periodHistory.isNotEmpty) _fetchPrediction();
+    }
   }
 
   // ── Save period history ───────────────────────────────────────────
   Future<void> _saveHistory() async {
+    // Keep local cache
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('period_history_v2', jsonEncode(_periodHistory));
 
+    // Save to Firestore
     final uid = AuthService.userId;
     if (uid.isEmpty) return;
+
     try {
       final db = FirebaseFirestore.instance;
       final col = db.collection('users').doc(uid).collection('period_history');
+
+      // Delete all existing docs first
       final existing = await col.get();
       final batch = db.batch();
       for (final doc in existing.docs) {
         batch.delete(doc.reference);
       }
+      // Write all current entries
       for (final entry in _periodHistory) {
+        // Use start date as document ID so updates overwrite correctly
         final docId = entry['start'].toString().replaceAll('-', '');
         batch.set(col.doc(docId), entry);
       }
       await batch.commit();
-      debugPrint(
-        'period_history saved to Firestore: ${_periodHistory.length} records',
-      );
     } catch (e) {
-      debugPrint('Firestore _saveHistory error: $e');
+      debugPrint('Firestore save error: $e');
     }
   }
 
   Future<void> _saveSymptomLogs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('symptom_logs', jsonEncode(_symptomLogs));
+
+    final uid = AuthService.userId;
+    if (uid.isEmpty) return;
+    final db = FirebaseFirestore.instance;
+
+    if (_symptomLogs.isNotEmpty) {
+      final latest = _symptomLogs.first;
+      await db
+          .collection('users')
+          .doc(uid)
+          .collection('symptom_logs')
+          .add(latest);
+    }
   }
 
   Future<void> _saveMedicationLogs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('medication_logs', jsonEncode(_medicationLogs));
+
+    final uid = AuthService.userId;
+    if (uid.isEmpty) return;
+    final db = FirebaseFirestore.instance;
+
+    if (_medicationLogs.isNotEmpty) {
+      final latest = _medicationLogs.first;
+      await db
+          .collection('users')
+          .doc(uid)
+          .collection('medication_logs')
+          .add(latest);
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1077,57 +1138,38 @@ class _HomeScreenState extends State<HomeScreen> {
     required String flow,
     required String notes,
   }) async {
-    final dateStr = date.toIso8601String().split('T')[0];
-    final savedAt = DateTime.now().toIso8601String();
     final log = {
-      'date': dateStr,
+      'date': date.toIso8601String().split('T')[0],
       'symptoms': symptoms,
       'mood': mood,
       'flow': flow,
       'notes': notes,
-      'saved_at': savedAt,
+      'saved_at': DateTime.now().toIso8601String(),
     };
     setState(() => _symptomLogs.insert(0, log));
     _saveSymptomLogs();
 
+    // Save directly to Firestore under user's collection
     final uid = AuthService.userId;
     if (uid.isNotEmpty) {
       try {
-        final db = FirebaseFirestore.instance;
-        // Save to symptom_logs
-        await db
-            .collection('users')
-            .doc(uid)
-            .collection('symptom_logs')
-            .doc(dateStr)
-            .set({
-              'date': dateStr,
-              'symptoms': symptoms,
-              'mood': mood,
-              'flow': flow,
-              'notes': notes,
-              'saved_at': savedAt,
-            });
-        // Save to cycle_logs
-        await db
+        await FirebaseFirestore.instance
             .collection('users')
             .doc(uid)
             .collection('cycle_logs')
-            .doc(dateStr)
-            .set({
+            .add({
               'user_id': uid,
-              'date': dateStr,
+              'date': date.toIso8601String().split('T')[0],
               'symptoms': symptoms,
               'mood': mood,
               'flow': flow,
               'notes': notes,
               'stress_level': 2,
               'sleep_hours': 7.0,
-              'saved_at': savedAt,
+              'saved_at': DateTime.now().toIso8601String(),
             });
-        debugPrint('symptom_logs and cycle_logs saved for $dateStr');
       } catch (e) {
-        debugPrint('Firestore symptom save error: $e');
+        debugPrint('Cycle log save error: $e');
       }
     }
 
@@ -1333,40 +1375,17 @@ class _HomeScreenState extends State<HomeScreen> {
     required String dosage,
     required String reminderTime,
     required String remarks,
-  }) async {
-    final dateStr = date.toIso8601String().split('T')[0];
-    final savedAt = DateTime.now().toIso8601String();
+  }) {
     final log = {
-      'date': dateStr,
+      'date': date.toIso8601String().split('T')[0],
       'name': name,
       'dosage': dosage,
       'reminder': reminderTime,
       'remarks': remarks,
-      'saved_at': savedAt,
+      'saved_at': DateTime.now().toIso8601String(),
     };
     setState(() => _medicationLogs.insert(0, log));
     _saveMedicationLogs();
-
-    final uid = AuthService.userId;
-    if (uid.isNotEmpty) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .collection('medication_logs')
-            .add({
-              'date': dateStr,
-              'name': name,
-              'dosage': dosage,
-              'reminder': reminderTime,
-              'remarks': remarks,
-              'saved_at': savedAt,
-            });
-        debugPrint('medication_logs saved for $dateStr');
-      } catch (e) {
-        debugPrint('Firestore medication save error: $e');
-      }
-    }
     _showSnack('$name saved for ${_fmtShortFull(date)}');
   }
 
@@ -1421,7 +1440,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Uri.parse('http://192.168.0.10:8000/predict'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'user_id': prefs.getString('uid') ?? 'user_001',
+              'user_id': prefs.getString('uid') ?? AuthService.userId,
               'avg_cycle_length': avgCycle,
               'avg_period_duration': avgDuration,
               'age': age,
@@ -1499,20 +1518,30 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadingPrediction = false;
       });
 
-      await _savePredictionToFirestore(
-        nextPeriod: nextPeriod,
-        fertileWindow: fertileWindow,
-        ovulationDay: ovulationDay,
-        cycleLength: cycleLength,
-        currentPhase: currentPhase,
-        phaseDesc: phaseDesc,
-        days: days,
-        nextStart: nextStart,
-        nextEnd: nextEnd,
-        avgCycle: avgCycle,
-        avgDuration: avgDuration,
-        source: 'ml_backend',
-      );
+      // Save to Firestore
+      final uid = AuthService.userId;
+      if (uid.isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('predictions')
+            .doc('latest')
+            .set({
+              'next_period': nextPeriod,
+              'fertile_window': fertileWindow,
+              'ovulation_day': ovulationDay,
+              'cycle_length': cycleLength,
+              'current_phase': currentPhase,
+              'phase_description': phaseDesc,
+              'days_until_period': days,
+              'next_period_start_iso': nextStart.toIso8601String(),
+              'next_period_end_iso': nextEnd.toIso8601String(),
+              'avg_cycle_length': avgCycle,
+              'avg_period_duration': avgDuration,
+              'source': 'ml_backend',
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+      }
     } catch (_) {
       _useFallback(avgCycle, avgDuration);
     }
@@ -1559,62 +1588,33 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadingPrediction = false;
     });
 
-    await _savePredictionToFirestore(
-      nextPeriod: nextPeriod,
-      fertileWindow: fertileWindow,
-      ovulationDay: ovulationDay,
-      cycleLength: cycleLength,
-      currentPhase: phase,
-      phaseDesc: desc,
-      days: days,
-      nextStart: nextStart,
-      nextEnd: nextEnd,
-      avgCycle: avgCycle,
-      avgDuration: avgDuration,
-      source: 'fallback',
-    );
-  }
-
-  Future<void> _savePredictionToFirestore({
-    required String nextPeriod,
-    required String fertileWindow,
-    required String ovulationDay,
-    required String cycleLength,
-    required String currentPhase,
-    required String phaseDesc,
-    required int days,
-    required DateTime nextStart,
-    required DateTime nextEnd,
-    required double avgCycle,
-    required double avgDuration,
-    required String source,
-  }) async {
+    // Save fallback prediction to Firestore
     final uid = AuthService.userId;
-    if (uid.isEmpty) return;
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('predictions')
-          .doc('latest')
-          .set({
-            'next_period': nextPeriod,
-            'fertile_window': fertileWindow,
-            'ovulation_day': ovulationDay,
-            'cycle_length': cycleLength,
-            'current_phase': currentPhase,
-            'phase_description': phaseDesc,
-            'days_until_period': days,
-            'next_period_start_iso': nextStart.toIso8601String(),
-            'next_period_end_iso': nextEnd.toIso8601String(),
-            'avg_cycle_length': avgCycle,
-            'avg_period_duration': avgDuration,
-            'source': source,
-            'updated_at': DateTime.now().toIso8601String(),
-          });
-      debugPrint('predictions/latest saved to Firestore');
-    } catch (e) {
-      debugPrint('Firestore prediction save error: $e');
+    if (uid.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('predictions')
+            .doc('latest')
+            .set({
+              'next_period': nextPeriod,
+              'fertile_window': fertileWindow,
+              'ovulation_day': ovulationDay,
+              'cycle_length': cycleLength,
+              'current_phase': phase,
+              'phase_description': desc,
+              'days_until_period': days,
+              'next_period_start_iso': nextStart.toIso8601String(),
+              'next_period_end_iso': nextEnd.toIso8601String(),
+              'avg_cycle_length': avgCycle,
+              'avg_period_duration': avgDuration,
+              'source': 'fallback',
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+      } catch (e) {
+        debugPrint('Fallback prediction save error: $e');
+      }
     }
   }
 
@@ -2252,30 +2252,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                 child: Column(
                   children: [
-                    _buildActionCardWithView(
-                      icon: Icons.favorite_outline,
-                      iconBg: const Color(0xFFEEEDFE),
-                      title: '+ Log Symptoms',
-                      sub: _symptomLogs.isEmpty
+                    _buildActionCard(
+                      Icons.favorite_outline,
+                      const Color(0xFFEEEDFE),
+                      '+ Log Symptoms',
+                      _symptomLogs.isEmpty
                           ? 'Track cramps, mood, flow & more'
                           : '${_symptomLogs.length} log${_symptomLogs.length == 1 ? '' : 's'} recorded',
-                      onAdd: _showLogSymptomsDialog,
-                      onView: _symptomLogs.isEmpty
-                          ? null
-                          : _showSymptomLogsList,
+                      _showLogSymptomsDialog,
                     ),
                     const SizedBox(height: 8),
-                    _buildActionCardWithView(
-                      icon: Icons.medical_services_outlined,
-                      iconBg: const Color(0xFFE6F1FB),
-                      title: '+ Medication',
-                      sub: _medicationLogs.isEmpty
+                    _buildActionCard(
+                      Icons.medical_services_outlined,
+                      const Color(0xFFE6F1FB),
+                      '+ Medication',
+                      _medicationLogs.isEmpty
                           ? 'Add medication with remarks'
                           : '${_medicationLogs.length} medication${_medicationLogs.length == 1 ? '' : 's'} logged',
-                      onAdd: _showMedicationDialog,
-                      onView: _medicationLogs.isEmpty
-                          ? null
-                          : _showMedicationLogsList,
+                      _showMedicationDialog,
                     ),
                   ],
                 ),
@@ -2500,1057 +2494,6 @@ class _HomeScreenState extends State<HomeScreen> {
       const SizedBox(width: 4),
       Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
     ],
-  );
-
-  // ════════════════════════════════════════════════════════════════
-  //  SYMPTOM LOGS LIST
-  // ════════════════════════════════════════════════════════════════
-  void _showSymptomLogsList() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        maxChildSize: 0.95,
-        minChildSize: 0.4,
-        builder: (_, ctrl) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Symptom Records',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF3C3489),
-                      ),
-                    ),
-                    const Spacer(),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showLogSymptomsDialog();
-                      },
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Add', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF7F77DD),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(height: 1, color: Colors.grey.shade100),
-              Expanded(
-                child: _symptomLogs.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No symptom logs yet',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
-                    : ListView.separated(
-                        controller: ctrl,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        itemCount: _symptomLogs.length,
-                        separatorBuilder: (_, _) =>
-                            Divider(height: 1, color: Colors.grey.shade100),
-                        itemBuilder: (_, i) {
-                          final log = _symptomLogs[i];
-                          final symptoms =
-                              (log['symptoms'] as List?)?.join(', ') ?? '';
-                          final mood = log['mood'] ?? '';
-                          final flow = log['flow'] ?? '';
-                          final notes = log['notes'] ?? '';
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 6,
-                            ),
-                            leading: Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEEEDFE),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.favorite_outline,
-                                color: Color(0xFF7F77DD),
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              log['date'] ?? '',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF2C2C2A),
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (symptoms.isNotEmpty)
-                                  Text(
-                                    'Symptoms: $symptoms',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                if (mood.isNotEmpty)
-                                  Text(
-                                    'Mood: $mood',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                if (flow.isNotEmpty)
-                                  Text(
-                                    'Flow: $flow',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF7F77DD),
-                                    ),
-                                  ),
-                                if (notes.isNotEmpty)
-                                  Text(
-                                    'Notes: $notes',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    size: 18,
-                                    color: Color(0xFF7F77DD),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    _showEditSymptomDialog(i);
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    size: 18,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () async {
-                                    final removed = _symptomLogs[i];
-                                    setState(() => _symptomLogs.removeAt(i));
-                                    _saveSymptomLogs();
-                                    Navigator.pop(context);
-                                    final uid = AuthService.userId;
-                                    if (uid.isNotEmpty) {
-                                      try {
-                                        final col = FirebaseFirestore.instance
-                                            .collection('users')
-                                            .doc(uid)
-                                            .collection('symptom_logs');
-                                        final snap = await col
-                                            .where(
-                                              'date',
-                                              isEqualTo: removed['date'],
-                                            )
-                                            .where(
-                                              'saved_at',
-                                              isEqualTo: removed['saved_at'],
-                                            )
-                                            .get();
-                                        for (final d in snap.docs) {
-                                          await d.reference.delete();
-                                        }
-                                      } catch (e) {
-                                        debugPrint('Delete symptom error: $e');
-                                      }
-                                    }
-                                    _showSnack('Symptom log deleted.');
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  //  MEDICATION LOGS LIST
-  // ════════════════════════════════════════════════════════════════
-  void _showMedicationLogsList() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        maxChildSize: 0.95,
-        minChildSize: 0.4,
-        builder: (_, ctrl) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Medication Records',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF3C3489),
-                      ),
-                    ),
-                    const Spacer(),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showMedicationDialog();
-                      },
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Add', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF378ADD),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(height: 1, color: Colors.grey.shade100),
-              Expanded(
-                child: _medicationLogs.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No medication logs yet',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
-                    : ListView.separated(
-                        controller: ctrl,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        itemCount: _medicationLogs.length,
-                        separatorBuilder: (_, _) =>
-                            Divider(height: 1, color: Colors.grey.shade100),
-                        itemBuilder: (_, i) {
-                          final log = _medicationLogs[i];
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 6,
-                            ),
-                            leading: Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE6F1FB),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.medication_outlined,
-                                color: Color(0xFF378ADD),
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              log['name'] ?? '',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF2C2C2A),
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Date: ${log['date'] ?? ''}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                if ((log['dosage'] ?? '').isNotEmpty)
-                                  Text(
-                                    'Dosage: ${log['dosage']}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF378ADD),
-                                    ),
-                                  ),
-                                if ((log['reminder'] ?? '').isNotEmpty)
-                                  Text(
-                                    'Reminder: ${log['reminder']}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                if ((log['remarks'] ?? '').isNotEmpty)
-                                  Text(
-                                    'Remarks: ${log['remarks']}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    size: 18,
-                                    color: Color(0xFF378ADD),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    _showEditMedicationDialog(i);
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    size: 18,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () async {
-                                    final removed = _medicationLogs[i];
-                                    setState(() => _medicationLogs.removeAt(i));
-                                    _saveMedicationLogs();
-                                    Navigator.pop(context);
-                                    final uid = AuthService.userId;
-                                    if (uid.isNotEmpty) {
-                                      try {
-                                        final col = FirebaseFirestore.instance
-                                            .collection('users')
-                                            .doc(uid)
-                                            .collection('medication_logs');
-                                        final snap = await col
-                                            .where(
-                                              'saved_at',
-                                              isEqualTo: removed['saved_at'],
-                                            )
-                                            .get();
-                                        for (final d in snap.docs) {
-                                          await d.reference.delete();
-                                        }
-                                      } catch (e) {
-                                        debugPrint(
-                                          'Delete medication error: $e',
-                                        );
-                                      }
-                                    }
-                                    _showSnack('Medication log deleted.');
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  //  EDIT SYMPTOM LOG
-  // ════════════════════════════════════════════════════════════════
-  void _showEditSymptomDialog(int index) {
-    final log = Map<String, dynamic>.from(_symptomLogs[index]);
-    List<String> selected = List<String>.from(log['symptoms'] ?? []);
-    String selectedMood = log['mood'] ?? '';
-    String selectedFlow = log['flow'] ?? '';
-    final notesCtrl = TextEditingController(text: log['notes'] ?? '');
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setDlg) => DraggableScrollableSheet(
-          initialChildSize: 0.85,
-          maxChildSize: 0.95,
-          minChildSize: 0.5,
-          builder: (_, ctrl) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'Edit Symptoms',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF3C3489),
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        log['date'] ?? '',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(height: 1, color: Colors.grey.shade100),
-                Expanded(
-                  child: ListView(
-                    controller: ctrl,
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      const Text(
-                        'Symptoms',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF3C3489),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _availableSymptoms.map((s) {
-                          final isSelected = selected.contains(s['name']);
-                          return GestureDetector(
-                            onTap: () => setDlg(() {
-                              if (isSelected) {
-                                selected.remove(s['name']);
-                              } else {
-                                selected.add(s['name'] as String);
-                              }
-                            }),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFF7F77DD)
-                                    : const Color(0xFFF4F5FB),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? const Color(0xFF7F77DD)
-                                      : const Color(0xFFEEEDFE),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    s['icon'] as IconData,
-                                    size: 14,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : const Color(0xFF7F77DD),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    s['name'] as String,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : const Color(0xFF5F5E5A),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Mood',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF3C3489),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _moodOptions.map((m) {
-                          final isSel = selectedMood == m;
-                          return GestureDetector(
-                            onTap: () => setDlg(() => selectedMood = m),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSel
-                                    ? const Color(0xFF378ADD)
-                                    : const Color(0xFFF4F5FB),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: isSel
-                                      ? const Color(0xFF378ADD)
-                                      : const Color(0xFFEEEDFE),
-                                ),
-                              ),
-                              child: Text(
-                                m,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isSel
-                                      ? Colors.white
-                                      : const Color(0xFF5F5E5A),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Flow level',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF3C3489),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: _flowOptions.map((f) {
-                          final isSel = selectedFlow == f;
-                          return Expanded(
-                            child: GestureDetector(
-                              onTap: () => setDlg(() => selectedFlow = f),
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 3,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isSel
-                                      ? const Color(0xFF7F77DD)
-                                      : const Color(0xFFF4F5FB),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: isSel
-                                        ? const Color(0xFF7F77DD)
-                                        : const Color(0xFFEEEDFE),
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    f,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: isSel ? Colors.white : Colors.grey,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Additional notes',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF3C3489),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: notesCtrl,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'Any other symptoms or notes...',
-                          hintStyle: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xFFF4F5FB),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade200),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade200),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF7F77DD),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            final updatedLog = {
-                              'date': log['date'],
-                              'symptoms': selected,
-                              'mood': selectedMood,
-                              'flow': selectedFlow,
-                              'notes': notesCtrl.text.trim(),
-                              'saved_at': log['saved_at'],
-                            };
-                            setState(() => _symptomLogs[index] = updatedLog);
-                            _saveSymptomLogs();
-                            // Update Firestore
-                            final uid = AuthService.userId;
-                            if (uid.isNotEmpty) {
-                              try {
-                                final col = FirebaseFirestore.instance
-                                    .collection('users')
-                                    .doc(uid)
-                                    .collection('symptom_logs');
-                                final snap = await col
-                                    .where('date', isEqualTo: log['date'])
-                                    .where(
-                                      'saved_at',
-                                      isEqualTo: log['saved_at'],
-                                    )
-                                    .get();
-                                for (final d in snap.docs) {
-                                  await d.reference.update(updatedLog);
-                                }
-                                if (snap.docs.isEmpty) {
-                                  await col.doc(log['date']).set(updatedLog);
-                                }
-                              } catch (e) {
-                                debugPrint('Edit symptom error: $e');
-                              }
-                            }
-                            _showSnack('Symptom log updated.');
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF7F77DD),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            'Update Symptoms',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  //  EDIT MEDICATION LOG
-  // ════════════════════════════════════════════════════════════════
-  void _showEditMedicationDialog(int index) {
-    final log = Map<String, dynamic>.from(_medicationLogs[index]);
-    final nameCtrl = TextEditingController(text: log['name'] ?? '');
-    final dosageCtrl = TextEditingController(text: log['dosage'] ?? '');
-    final remarksCtrl = TextEditingController(text: log['remarks'] ?? '');
-    String reminderTime = log['reminder'] ?? '';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setDlg) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Text(
-                      'Edit Medication',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF3C3489),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      log['date'] ?? '',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _medInput(
-                  controller: nameCtrl,
-                  hint: 'Medication name',
-                  icon: Icons.medication_outlined,
-                ),
-                const SizedBox(height: 10),
-                _medInput(
-                  controller: dosageCtrl,
-                  hint: 'Dosage (e.g. 400mg)',
-                  icon: Icons.science_outlined,
-                ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: () async {
-                    final t = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay.now(),
-                      builder: (_, child) => Theme(
-                        data: ThemeData.light().copyWith(
-                          colorScheme: const ColorScheme.light(
-                            primary: Color(0xFF7F77DD),
-                          ),
-                        ),
-                        child: child!,
-                      ),
-                    );
-                    if (t != null) {
-                      setDlg(() => reminderTime = t.format(context));
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 13,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF4F5FB),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.alarm_outlined,
-                          color: Color(0xFF7F77DD),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          reminderTime.isEmpty
-                              ? 'Set reminder time (optional)'
-                              : 'Reminder: $reminderTime',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: reminderTime.isEmpty
-                                ? Colors.grey
-                                : const Color(0xFF3C3489),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: remarksCtrl,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    hintText: 'Remarks (e.g. take after meals)',
-                    hintStyle: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.notes_outlined,
-                      color: Color(0xFF7F77DD),
-                      size: 18,
-                    ),
-                    filled: true,
-                    fillColor: const Color(0xFFF4F5FB),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFF7F77DD)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      if (nameCtrl.text.trim().isEmpty) {
-                        _showSnack('Please enter a medication name.');
-                        return;
-                      }
-                      Navigator.pop(context);
-                      final updatedLog = {
-                        'date': log['date'],
-                        'name': nameCtrl.text.trim(),
-                        'dosage': dosageCtrl.text.trim(),
-                        'reminder': reminderTime,
-                        'remarks': remarksCtrl.text.trim(),
-                        'saved_at': log['saved_at'],
-                      };
-                      setState(() => _medicationLogs[index] = updatedLog);
-                      _saveMedicationLogs();
-                      // Update Firestore
-                      final uid = AuthService.userId;
-                      if (uid.isNotEmpty) {
-                        try {
-                          final col = FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(uid)
-                              .collection('medication_logs');
-                          final snap = await col
-                              .where('saved_at', isEqualTo: log['saved_at'])
-                              .get();
-                          for (final d in snap.docs) {
-                            await d.reference.update(updatedLog);
-                          }
-                          if (snap.docs.isEmpty) {
-                            await col.add(updatedLog);
-                          }
-                        } catch (e) {
-                          debugPrint('Edit medication error: $e');
-                        }
-                      }
-                      _showSnack('Medication updated.');
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF378ADD),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Update Medication',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionCardWithView({
-    required IconData icon,
-    required Color iconBg,
-    required String title,
-    required String sub,
-    required VoidCallback onAdd,
-    VoidCallback? onView,
-  }) => Container(
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFEEEDFE)),
-    ),
-    child: Column(
-      children: [
-        ListTile(
-          leading: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: const Color(0xFF7F77DD), size: 18),
-          ),
-          title: Text(
-            title,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          ),
-          subtitle: Text(
-            sub,
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-          trailing: ElevatedButton(
-            onPressed: onAdd,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7F77DD),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text('+ Add', style: TextStyle(fontSize: 11)),
-          ),
-        ),
-        if (onView != null) ...[
-          Divider(height: 1, color: Colors.grey.shade100),
-          InkWell(
-            onTap: onView,
-            borderRadius: const BorderRadius.vertical(
-              bottom: Radius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.list_alt_outlined,
-                    size: 14,
-                    color: Colors.grey.shade500,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'View & manage records',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  ),
-                  const Spacer(),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 16,
-                    color: Colors.grey.shade400,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
-    ),
   );
 
   Widget _buildActionCard(

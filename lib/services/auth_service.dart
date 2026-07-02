@@ -147,24 +147,30 @@ class AuthService {
     if (p['username'] != null) prefs.setString('username', p['username']);
     if (p['email'] != null) prefs.setString('user_email', p['email']);
     if (p['age'] != null) prefs.setInt('user_age', p['age']);
-    if (p['avg_cycle_length'] != null)
+    if (p['avg_cycle_length'] != null) {
       prefs.setDouble(
         'avg_cycle_length',
         (p['avg_cycle_length'] as num).toDouble(),
       );
-    if (p['avg_period_duration'] != null)
+    }
+    if (p['avg_period_duration'] != null) {
       prefs.setDouble(
         'avg_period_duration',
         (p['avg_period_duration'] as num).toDouble(),
       );
-    if (p['stress_level'] != null)
+    }
+    if (p['stress_level'] != null) {
       prefs.setInt('stress_level', p['stress_level']);
-    if (p['sleep_hours'] != null)
+    }
+    if (p['sleep_hours'] != null) {
       prefs.setDouble('sleep_hours', (p['sleep_hours'] as num).toDouble());
-    if (p['exercise_days'] != null)
+    }
+    if (p['exercise_days'] != null) {
       prefs.setInt('exercise_days', p['exercise_days']);
-    if (p['fitness_level'] != null)
+    }
+    if (p['fitness_level'] != null) {
       prefs.setString('fitness_level', p['fitness_level']);
+    }
   }
 
   static Future<Map<String, dynamic>?> _getCachedProfile() async {

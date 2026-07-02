@@ -4,6 +4,7 @@ import 'wellness_screen.dart';
 import 'chatbot_screen.dart';
 import 'alerts_screen.dart';
 import 'profile_screen.dart';
+import 'journal_screen.dart';
 
 class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});
@@ -19,6 +20,7 @@ class _MainScaffoldState extends State<MainScaffold> {
     const HomeScreen(),
     const WellnessScreen(),
     const ChatbotScreen(),
+    const JournalScreen(),
     const AlertsScreen(),
     const ProfileScreen(),
   ];
@@ -49,6 +51,10 @@ class _MainScaffoldState extends State<MainScaffold> {
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_bubble_outline),
             label: 'Chat',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book_outlined),
+            label: 'Journal',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications_none),

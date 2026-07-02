@@ -120,13 +120,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                           color: Color(0xFF3C3489),
                         ),
                       ),
-                      Text(
-                        '● Online',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF3B6D11),
-                        ),
-                      ),
                     ],
                   ),
                 ],

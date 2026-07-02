@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../providers/theme_provider.dart';
+import '../services/notification_service.dart';
+import '../services/auth_service.dart';
+import 'login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -9,45 +14,57 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _periodReminder = true;
-  bool _wellnessReminder = true;
-  bool _aiInsights = false;
-  bool _ovulationReminder = true;
-  bool _darkMode = false;
-  bool _appLock = false;
-  bool _shareData = false;
+  // Notification toggles
+  bool _notifPeriod = true;
+  bool _notifWellness = true;
+  bool _notifOvulation = true;
+  bool _notifAi = false;
+
+  // Other toggles
   String _language = 'English';
-  bool _loading = true;
+
+  final List<String> _languages = [
+    'English',
+    'Bahasa Melayu',
+    'Chinese (Simplified)',
+    'Tamil',
+    'Japanese',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _loadPreferences();
   }
 
-  Future<void> _loadSettings() async {
+  Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
+    final notifPrefs = await NotificationService.instance.getPreferences();
     setState(() {
-      _periodReminder = prefs.getBool('notif_period') ?? true;
-      _wellnessReminder = prefs.getBool('notif_wellness') ?? true;
-      _aiInsights = prefs.getBool('notif_ai') ?? false;
-      _ovulationReminder = prefs.getBool('notif_ovulation') ?? true;
-      _darkMode = prefs.getBool('dark_mode') ?? false;
-      _appLock = prefs.getBool('app_lock') ?? false;
-      _shareData = prefs.getBool('share_data') ?? false;
+      _notifPeriod = notifPrefs['notif_period'] ?? true;
+      _notifWellness = notifPrefs['notif_wellness'] ?? true;
+      _notifOvulation = notifPrefs['notif_ovulation'] ?? true;
+      _notifAi = notifPrefs['notif_ai'] ?? false;
       _language = prefs.getString('language') ?? 'English';
-      _loading = false;
     });
   }
 
-  Future<void> _saveBool(String key, bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(key, value);
+  Future<void> _setNotif(String key, bool value) async {
+    setState(() {
+      if (key == 'notif_period') _notifPeriod = value;
+      if (key == 'notif_wellness') _notifWellness = value;
+      if (key == 'notif_ovulation') _notifOvulation = value;
+      if (key == 'notif_ai') _notifAi = value;
+    });
+    await NotificationService.instance.setPreference(key, value);
+    _showSnack(value ? 'Reminder enabled' : 'Reminder disabled');
   }
 
-  Future<void> _saveString(String key, String value) async {
+  Future<void> _setLanguage(String lang) async {
+    setState(() => _language = lang);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(key, value);
+    await prefs.setString('language', lang);
+    _showSnack('Language set to $lang');
   }
 
   void _showSnack(String msg) {
@@ -62,7 +79,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _confirmDeleteAccount() {
+  void _showLanguagePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+            Text(
+              'Select Language',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF3C3489),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ..._languages.map(
+              (lang) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  lang,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: const Color(0xFF2C2C2A),
+                  ),
+                ),
+                trailing: _language == lang
+                    ? const Icon(
+                        Icons.check_circle,
+                        color: Color(0xFF7F77DD),
+                        size: 20,
+                      )
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  _setLanguage(lang);
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog() {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -72,7 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
         ),
         content: const Text(
-          'This will permanently delete your account and all data. This action cannot be undone.',
+          'This will permanently delete your account and all your data. This action cannot be undone.',
           style: TextStyle(fontSize: 13, height: 1.5),
         ),
         actions: [
@@ -81,7 +164,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await AuthService.signOut();
+                if (mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              } catch (e) {
+                _showSnack('Error: $e');
+              }
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               shape: RoundedRectangleBorder(
@@ -95,320 +192,378 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _exportData() {
-    _showSnack('Data export will be sent to your email.');
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFF4F5FB),
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF7F77DD)),
-        ),
-      );
-    }
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5FB),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-              color: const Color(0xFFEEEDFE),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new,
-                        size: 15,
-                        color: Color(0xFF7F77DD),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Settings',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF3C3489),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: SingleChildScrollView(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                color: const Color(0xFFEEEDFE),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 8),
-
-                    // Notifications
-                    _sectionLabel('Notifications'),
-                    _toggleRow(
-                      Icons.notifications_outlined,
-                      'Period reminders',
-                      'Alert 2 days before your period',
-                      _periodReminder,
-                      (v) {
-                        setState(() => _periodReminder = v);
-                        _saveBool('notif_period', v);
-                      },
-                    ),
-                    _toggleRow(
-                      Icons.self_improvement,
-                      'Wellness reminders',
-                      'Daily exercise nudges',
-                      _wellnessReminder,
-                      (v) {
-                        setState(() => _wellnessReminder = v);
-                        _saveBool('notif_wellness', v);
-                      },
-                    ),
-                    _toggleRow(
-                      Icons.auto_awesome_outlined,
-                      'AI insights',
-                      'New personalised health tips',
-                      _aiInsights,
-                      (v) {
-                        setState(() => _aiInsights = v);
-                        _saveBool('notif_ai', v);
-                      },
-                    ),
-                    _toggleRow(
-                      Icons.favorite_border,
-                      'Ovulation reminders',
-                      'Fertility window alerts',
-                      _ovulationReminder,
-                      (v) {
-                        setState(() => _ovulationReminder = v);
-                        _saveBool('notif_ovulation', v);
-                      },
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Appearance
-                    _sectionLabel('Appearance'),
-                    _toggleRow(
-                      Icons.dark_mode_outlined,
-                      'Dark mode',
-                      'Follow system setting',
-                      _darkMode,
-                      (v) {
-                        setState(() => _darkMode = v);
-                        _saveBool('dark_mode', v);
-                      },
-                    ),
-                    _dropdownRow(
-                      Icons.language,
-                      'Language',
-                      _language,
-                      ['English', 'Bahasa Malaysia', '中文'],
-                      (v) {
-                        setState(() => _language = v!);
-                        _saveString('language', v!);
-                      },
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Privacy
-                    _sectionLabel('Privacy & Security'),
-                    _toggleRow(
-                      Icons.lock_outline,
-                      'App lock',
-                      'Require biometrics to open',
-                      _appLock,
-                      (v) {
-                        setState(() => _appLock = v);
-                        _saveBool('app_lock', v);
-                      },
-                    ),
-                    _toggleRow(
-                      Icons.bar_chart_outlined,
-                      'Share anonymised data',
-                      'Help improve the AI model',
-                      _shareData,
-                      (v) {
-                        setState(() => _shareData = v);
-                        _saveBool('share_data', v);
-                      },
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Data
-                    _sectionLabel('Data Management'),
-                    _actionRow(
-                      Icons.upload_outlined,
-                      'Export my data',
-                      const Color(0xFF7F77DD),
-                      _exportData,
-                    ),
-                    _actionRow(
-                      Icons.delete_outline,
-                      'Delete account',
-                      const Color(0xFFE24B4A),
-                      _confirmDeleteAccount,
-                    ),
-
-                    // App version
-                    const SizedBox(height: 24),
-                    const Center(
-                      child: Text(
-                        'Luna Health v1.0.0',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                    Text(
+                      'Settings',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF3C3489),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Manage your preferences',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── APPEARANCE ─────────────────────────────────
+                    _sectionTitle('APPEARANCE'),
+                    _settingsCard([
+                      _toggleTile(
+                        icon: Icons.dark_mode_outlined,
+                        iconBg: const Color(0xFF221F30),
+                        iconColor: Colors.white,
+                        title: 'Dark Mode',
+                        subtitle: isDark
+                            ? 'Dark theme active'
+                            : 'Light theme active',
+                        value: isDark,
+                        onChanged: (v) => themeProvider.setDarkMode(v),
+                      ),
+                    ]),
+
+                    // ── LANGUAGE ───────────────────────────────────
+                    _sectionTitle('LANGUAGE'),
+                    _settingsCard([
+                      ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE6F1FB),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.language,
+                            color: Color(0xFF378ADD),
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(
+                          'App Language',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF2C2C2A),
+                          ),
+                        ),
+                        subtitle: Text(
+                          _language,
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: Colors.grey,
+                          size: 18,
+                        ),
+                        onTap: _showLanguagePicker,
+                      ),
+                    ]),
+
+                    // ── NOTIFICATIONS ──────────────────────────────
+                    _sectionTitle('NOTIFICATIONS'),
+                    _settingsCard([
+                      _toggleTile(
+                        icon: Icons.water_drop_outlined,
+                        iconBg: const Color(0xFFEEEDFE),
+                        iconColor: const Color(0xFF7F77DD),
+                        title: 'Period Reminder',
+                        subtitle: 'Get notified 2 days before your period',
+                        value: _notifPeriod,
+                        onChanged: (v) => _setNotif('notif_period', v),
+                      ),
+                      _divider(),
+                      _toggleTile(
+                        icon: Icons.wb_sunny_outlined,
+                        iconBg: const Color(0xFFEEEDFE),
+                        iconColor: const Color(0xFF7F77DD),
+                        title: 'Ovulation Reminder',
+                        subtitle: 'Alert before your fertile window',
+                        value: _notifOvulation,
+                        onChanged: (v) => _setNotif('notif_ovulation', v),
+                      ),
+                      _divider(),
+                      _toggleTile(
+                        icon: Icons.self_improvement,
+                        iconBg: const Color(0xFFE6F1FB),
+                        iconColor: const Color(0xFF378ADD),
+                        title: 'Wellness Check-in',
+                        subtitle: 'Daily reminder to log symptoms',
+                        value: _notifWellness,
+                        onChanged: (v) => _setNotif('notif_wellness', v),
+                      ),
+                      _divider(),
+                      _toggleTile(
+                        icon: Icons.auto_awesome,
+                        iconBg: const Color(0xFFEEEDFE),
+                        iconColor: const Color(0xFF7F77DD),
+                        title: 'AI Insight Tips',
+                        subtitle: 'Daily personalised health tips',
+                        value: _notifAi,
+                        onChanged: (v) => _setNotif('notif_ai', v),
+                      ),
+                    ]),
+
+                    // ── PRIVACY & ACCOUNT ──────────────────────────
+                    _sectionTitle('PRIVACY & ACCOUNT'),
+                    _settingsCard([
+                      ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEEDFE),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.privacy_tip_outlined,
+                            color: Color(0xFF7F77DD),
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(
+                          'Privacy Policy',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF2C2C2A),
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: Colors.grey,
+                          size: 18,
+                        ),
+                        onTap: () => _showSnack('Opening Privacy Policy...'),
+                      ),
+                      _divider(),
+                      ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEEDFE),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.description_outlined,
+                            color: Color(0xFF7F77DD),
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(
+                          'Terms of Service',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF2C2C2A),
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: Colors.grey,
+                          size: 18,
+                        ),
+                        onTap: () => _showSnack('Opening Terms of Service...'),
+                      ),
+                      _divider(),
+                      ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFCEBEB),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.delete_forever_outlined,
+                            color: Color(0xFFE24B4A),
+                            size: 18,
+                          ),
+                        ),
+                        title: const Text(
+                          'Delete Account',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFE24B4A),
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Permanently remove all your data',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right,
+                          color: Colors.red,
+                          size: 18,
+                        ),
+                        onTap: _showDeleteAccountDialog,
+                      ),
+                    ]),
+
+                    // ── ABOUT ──────────────────────────────────────
+                    _sectionTitle('ABOUT'),
+                    _settingsCard([
+                      ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEEDFE),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.info_outline,
+                            color: Color(0xFF7F77DD),
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(
+                          'App Version',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF2C2C2A),
+                          ),
+                        ),
+                        trailing: Text(
+                          '1.0.0',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ),
+                      _divider(),
+                      ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEEDFE),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.favorite_outline,
+                            color: Color(0xFF7F77DD),
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(
+                          'Made with ♥ by Luna Health',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF2C2C2A),
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Your cycle, your data, your control',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ),
+                    ]),
+
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _sectionLabel(String label) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+  Widget _sectionTitle(String title) => Padding(
+    padding: const EdgeInsets.only(bottom: 8, top: 4),
     child: Text(
-      label.toUpperCase(),
-      style: const TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
+      title,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
         color: Colors.grey,
         letterSpacing: 0.5,
       ),
     ),
   );
 
-  Widget _toggleRow(
-    IconData icon,
-    String title,
-    String sub,
-    bool value,
-    ValueChanged<bool> onChanged,
-  ) => Container(
-    color: Colors.white,
-    margin: const EdgeInsets.only(bottom: 1),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    child: Row(
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEEEDFE),
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Icon(icon, color: const Color(0xFF7F77DD), size: 17),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF2C2C2A)),
-              ),
-              Text(
-                sub,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeThumbColor: const Color(0xFF7F77DD),
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-      ],
+  Widget _settingsCard(List<Widget> children) => Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFEEEDFE)),
     ),
+    child: Column(children: children),
   );
 
-  Widget _dropdownRow(
-    IconData icon,
-    String title,
-    String value,
-    List<String> options,
-    ValueChanged<String?> onChanged,
-  ) => Container(
-    color: Colors.white,
-    margin: const EdgeInsets.only(bottom: 1),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    child: Row(
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEEEDFE),
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Icon(icon, color: const Color(0xFF7F77DD), size: 17),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF2C2C2A)),
-          ),
-        ),
-        DropdownButton<String>(
-          value: value,
-          underline: const SizedBox(),
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-          onChanged: onChanged,
-          items: options
-              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
-              .toList(),
-        ),
-      ],
-    ),
-  );
-
-  Widget _actionRow(
-    IconData icon,
-    String title,
-    Color color,
-    VoidCallback onTap,
-  ) => Container(
-    color: Colors.white,
-    margin: const EdgeInsets.only(bottom: 1),
-    child: ListTile(
-      leading: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(9),
-        ),
-        child: Icon(icon, color: color, size: 17),
+  Widget _toggleTile({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) => SwitchListTile(
+    secondary: Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: iconBg,
+        borderRadius: BorderRadius.circular(10),
       ),
-      title: Text(title, style: TextStyle(fontSize: 13, color: color)),
-      trailing: Icon(Icons.chevron_right, color: color, size: 18),
-      onTap: onTap,
+      child: Icon(icon, color: iconColor, size: 18),
     ),
+    title: Text(
+      title,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: const Color(0xFF2C2C2A),
+      ),
+    ),
+    subtitle: Text(
+      subtitle,
+      style: TextStyle(fontSize: 11, color: Colors.grey),
+    ),
+    value: value,
+    activeThumbColor: const Color(0xFF7F77DD),
+    activeTrackColor: const Color(0xFFAFA9EC),
+    onChanged: onChanged,
+  );
+
+  Widget _divider() => Divider(
+    height: 1,
+    color: const Color(0xFFEEEDFE),
+    indent: 16,
+    endIndent: 16,
   );
 }

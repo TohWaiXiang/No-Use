@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 import 'settings_screen.dart';
 import 'login_screen.dart';
@@ -109,12 +110,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _saveField(String key, dynamic value) async {
+    // Update the current profile value (existing behaviour)
     await AuthService.updateProfile({key: value});
     final prefs = await SharedPreferences.getInstance();
     if (value is String) await prefs.setString(key, value);
     if (value is int) await prefs.setInt(key, value);
     if (value is double) await prefs.setDouble(key, value);
+
+    // Also save as a new historical record in Firestore
+    await _saveProfileHistory(key, value);
+
     _showSnack('$key updated successfully.');
+  }
+
+  /// Saves every profile field change as a new dated record under
+  /// users/{uid}/profile_history so changes over time can be tracked.
+  Future<void> _saveProfileHistory(String key, dynamic value) async {
+    final uid = AuthService.userId;
+    if (uid.isEmpty) return;
+    try {
+      final now = DateTime.now();
+      final dateStr = now.toIso8601String().split('T')[0];
+      final docId = '${dateStr}_$key';
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('profile_history')
+          .doc(docId)
+          .set({
+            'field': key,
+            'value': value,
+            'date': dateStr,
+            'recorded_at': now.toIso8601String(),
+            // Snapshot of all related health metrics at the time of this change,
+            // useful for tracking trends in the ML model later.
+            'snapshot': {
+              'cycle_length': double.tryParse(_cycleLength) ?? 28.0,
+              'period_duration': double.tryParse(_periodDur) ?? 5.0,
+              'stress_level': _stressLevel,
+              'sleep_hours': _sleepHours,
+              'exercise_days': _exerciseDays,
+              'fitness_level': _fitness,
+            },
+          });
+      print('profile_history saved: $docId');
+    } catch (e) {
+      print('Firestore profile_history save error: $e');
+    }
   }
 
   void _showSnack(String msg) {
@@ -371,6 +414,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       inactiveColor: const Color(0xFFEEEDFE),
                       onChanged: (v) {
                         setState(() => _stressLevel = v.round());
+                      },
+                      onChangeEnd: (v) {
                         _saveField('stress_level', v.round());
                       },
                     ),
@@ -443,6 +488,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           () =>
                               _sleepHours = double.parse(v.toStringAsFixed(1)),
                         );
+                      },
+                      onChangeEnd: (v) {
                         _saveField(
                           'sleep_hours',
                           double.parse(v.toStringAsFixed(1)),
@@ -629,9 +676,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   child: OutlinedButton(
                     onPressed: () async {
+                      final nav = Navigator.of(context);
                       await AuthService.signOut();
                       if (!mounted) return;
-                      final nav = Navigator.of(context);
                       nav.pushAndRemoveUntil(
                         MaterialPageRoute(builder: (_) => const LoginScreen()),
                         (_) => false,

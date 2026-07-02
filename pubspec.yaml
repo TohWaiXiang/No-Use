@@ -53,7 +53,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/logo.jpg" 
+  image_path: "assets/Luna.png" 
 
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -71,7 +71,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/logo.jpg
+    - assets/Luna.png
    
   # To add assets to your application, add an assets section, like this:
   # assets:
