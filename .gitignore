@@ -23,6 +23,16 @@ migrate_working_dir/
 # is commented out by default.
 #.vscode/
 
+# Local secrets passed to the app via --dart-define-from-file. Never commit
+# your real OpenAI key.
+env.json
+
+# Backend secrets (OpenAI key etc.) loaded via python-dotenv. Never commit.
+luna_backend/.env
+
+# Firebase service account key (Admin SDK credentials). Never commit.
+luna_backend/firebase_config/serviceAccountKey.json
+
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
