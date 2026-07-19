@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/auth_service.dart';
 import 'settings_screen.dart';
 import 'login_screen.dart';
+import 'hormonal_questionnaire_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -23,6 +26,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   double _sleepHours = 7.0;
   int _exerciseDays = 3;
   bool _loading = true;
+  String? _hormonalRisk;
+  int? _pss10Score;
+  int? _psqiGlobalScore;
+  String? _assessmentDate;
+  String _weight = '—';
+  String? _avatarPath;
 
   @override
   void initState() {
@@ -32,6 +41,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadProfile() async {
     setState(() => _loading = true);
+    final prefs = await SharedPreferences.getInstance();
+    _avatarPath = prefs.getString('avatar_path');
     final profile = await AuthService.getUserProfile();
     if (profile != null && mounted) {
       setState(() {
@@ -39,11 +50,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _email = profile['email'] ?? '—';
         _age = (profile['age'] ?? '—').toString();
         _cycleLength = (profile['avg_cycle_length'] ?? 28).toString();
-        _periodDur = (profile['avg_period_duration'] ?? 5).toString();
+        _periodDur = ((profile['avg_period_duration'] ?? 5) as num)
+            .round()
+            .toString();
         _fitness = profile['fitness_level'] ?? 'Beginner';
         _stressLevel = profile['stress_level'] ?? 2;
         _sleepHours = (profile['sleep_hours'] ?? 7.0).toDouble();
         _exerciseDays = profile['exercise_days'] ?? 3;
+        _hormonalRisk = profile['hormonal_risk'];
+        _pss10Score = profile['pss10_score'];
+        _psqiGlobalScore = profile['psqi_global_score'];
+        _assessmentDate = profile['hormonal_assessment_date'];
+        _weight = (profile['weight_kg'] ?? '—').toString();
       });
     }
     setState(() => _loading = false);
@@ -147,17 +165,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // useful for tracking trends in the ML model later.
             'snapshot': {
               'cycle_length': double.tryParse(_cycleLength) ?? 28.0,
-              'period_duration': double.tryParse(_periodDur) ?? 5.0,
+              'period_duration': int.tryParse(_periodDur) ?? 5,
               'stress_level': _stressLevel,
               'sleep_hours': _sleepHours,
               'exercise_days': _exerciseDays,
               'fitness_level': _fitness,
+              'weight_kg': double.tryParse(_weight) ?? 0.0,
             },
           });
-      print('profile_history saved: $docId');
-    } catch (e) {
-      print('Firestore profile_history save error: $e');
-    }
+    } catch (_) {}
+  }
+
+  Future<void> _pickAvatar() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('avatar_path', picked.path);
+    setState(() => _avatarPath = picked.path);
   }
 
   void _showSnack(String msg) {
@@ -172,20 +199,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  String _stressLabel(int v) {
-    switch (v) {
-      case 1:
-        return 'Very Low';
-      case 2:
-        return 'Low';
-      case 3:
-        return 'Moderate';
-      case 4:
-        return 'High';
-      case 5:
-        return 'Very High';
+  Color _riskColor(String risk) {
+    switch (risk) {
+      case 'High':
+        return const Color(0xFFE24B4A);
+      case 'Moderate':
+        return const Color(0xFFD79B2E);
       default:
-        return 'Low';
+        return const Color(0xFF3FA66B);
     }
   }
 
@@ -215,25 +236,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Stack(
                       children: [
-                        Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF7F77DD),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
-                          ),
-                          child: Center(
-                            child: Text(
-                              _username.isNotEmpty
-                                  ? _username[0].toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 28,
-                                fontWeight: FontWeight.w600,
-                              ),
+                        GestureDetector(
+                          onTap: _pickAvatar,
+                          child: Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7F77DD),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              image: _avatarPath != null
+                                  ? DecorationImage(
+                                      image: FileImage(File(_avatarPath!)),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
                             ),
+                            child: _avatarPath == null
+                                ? Center(
+                                    child: Text(
+                                      _username.isNotEmpty
+                                          ? _username[0].toUpperCase()
+                                          : 'U',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  )
+                                : null,
                           ),
                         ),
                         Positioned(
@@ -343,7 +375,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 '$_periodDur days',
                 onTap: () => _showEditField('Period Duration', _periodDur, (v) {
                   setState(() => _periodDur = v);
-                  _saveField('avg_period_duration', double.tryParse(v) ?? 5.0);
+                  _saveField('avg_period_duration', int.tryParse(v) ?? 5);
                 }, keyboard: TextInputType.number),
               ),
 
@@ -352,7 +384,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // ── Health Profile ────────────────────────────────────
               _sectionLabel('Health Profile'),
 
-              // Stress level
+              // Hormonal balance — replaces the old one-shot stress/sleep
+              // sliders with the PSS-10 + PSQI monthly questionnaire.
               Container(
                 color: Colors.white,
                 margin: const EdgeInsets.only(bottom: 1),
@@ -370,7 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             borderRadius: BorderRadius.circular(9),
                           ),
                           child: const Icon(
-                            Icons.psychology_outlined,
+                            Icons.monitor_heart_outlined,
                             color: Color(0xFF7F77DD),
                             size: 17,
                           ),
@@ -378,123 +411,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(width: 12),
                         const Expanded(
                           child: Text(
-                            'Stress Level',
+                            'Hormonal Balance',
                             style: TextStyle(
                               fontSize: 13,
                               color: Color(0xFF2C2C2A),
                             ),
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEEDFE),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            _stressLabel(_stressLevel),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF7F77DD),
-                              fontWeight: FontWeight.w500,
+                        if (_hormonalRisk != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _riskColor(_hormonalRisk!).withValues(
+                                alpha: 0.15,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '$_hormonalRisk risk',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: _riskColor(_hormonalRisk!),
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
-                    Slider(
-                      value: _stressLevel.toDouble(),
-                      min: 1,
-                      max: 5,
-                      divisions: 4,
-                      activeColor: const Color(0xFF7F77DD),
-                      inactiveColor: const Color(0xFFEEEDFE),
-                      onChanged: (v) {
-                        setState(() => _stressLevel = v.round());
-                      },
-                      onChangeEnd: (v) {
-                        _saveField('stress_level', v.round());
-                      },
+                    const SizedBox(height: 6),
+                    Text(
+                      _hormonalRisk == null
+                          ? 'Take the monthly stress & sleep check-in to estimate your hormonal balance.'
+                          : 'PSS-10: $_pss10Score/40 · PSQI: $_psqiGlobalScore/21'
+                                '${_assessmentDate != null ? ' · ${_assessmentDate!.split('T').first}' : ''}',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
-                  ],
-                ),
-              ),
-
-              // Sleep hours
-              Container(
-                color: Colors.white,
-                margin: const EdgeInsets.only(bottom: 1),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEEDFE),
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          child: const Icon(
-                            Icons.bedtime_outlined,
-                            color: Color(0xFF7F77DD),
-                            size: 17,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            'Sleep Hours / Night',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF2C2C2A),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const HormonalQuestionnaireScreen(),
                             ),
+                          );
+                          if (result != null && mounted) {
+                            setState(() {
+                              _hormonalRisk = result['risk'];
+                              _pss10Score = result['pssScore'];
+                              _psqiGlobalScore = result['psqiGlobal'];
+                            });
+                            _showSnack(
+                              'Hormonal risk: ${result['risk']}',
+                            );
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF7F77DD)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEEDFE),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '${_sleepHours.toStringAsFixed(1)} hrs',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF7F77DD),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                        child: Text(
+                          _hormonalRisk == null
+                              ? 'Take Monthly Assessment'
+                              : 'Retake Assessment',
+                          style: const TextStyle(color: Color(0xFF7F77DD)),
                         ),
-                      ],
-                    ),
-                    Slider(
-                      value: _sleepHours,
-                      min: 4,
-                      max: 12,
-                      divisions: 16,
-                      activeColor: const Color(0xFF378ADD),
-                      inactiveColor: const Color(0xFFE6F1FB),
-                      onChanged: (v) {
-                        setState(
-                          () =>
-                              _sleepHours = double.parse(v.toStringAsFixed(1)),
-                        );
-                      },
-                      onChangeEnd: (v) {
-                        _saveField(
-                          'sleep_hours',
-                          double.parse(v.toStringAsFixed(1)),
-                        );
-                      },
+                      ),
                     ),
                   ],
                 ),
@@ -653,6 +643,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
+              ),
+
+              // Weight — recorded for future model use, not yet fed into
+              // any prediction (no training data covers it). Medication is
+              // already logged from the Home screen.
+              _editRow(
+                Icons.monitor_weight_outlined,
+                'Weight (kg)',
+                _weight,
+                onTap: () => _showEditField('Weight (kg)', _weight, (v) {
+                  setState(() => _weight = v);
+                  _saveField('weight_kg', double.tryParse(v) ?? 0.0);
+                }, keyboard: TextInputType.number),
               ),
 
               const SizedBox(height: 8),

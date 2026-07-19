@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../providers/theme_provider.dart';
 import '../services/notification_service.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'legal_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -20,17 +18,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notifOvulation = true;
   bool _notifAi = false;
 
-  // Other toggles
-  String _language = 'English';
-
-  final List<String> _languages = [
-    'English',
-    'Bahasa Melayu',
-    'Chinese (Simplified)',
-    'Tamil',
-    'Japanese',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -38,14 +25,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
     final notifPrefs = await NotificationService.instance.getPreferences();
     setState(() {
       _notifPeriod = notifPrefs['notif_period'] ?? true;
       _notifWellness = notifPrefs['notif_wellness'] ?? true;
       _notifOvulation = notifPrefs['notif_ovulation'] ?? true;
       _notifAi = notifPrefs['notif_ai'] ?? false;
-      _language = prefs.getString('language') ?? 'English';
     });
   }
 
@@ -60,13 +45,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showSnack(value ? 'Reminder enabled' : 'Reminder disabled');
   }
 
-  Future<void> _setLanguage(String lang) async {
-    setState(() => _language = lang);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('language', lang);
-    _showSnack('Language set to $lang');
-  }
-
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -79,124 +57,120 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showLanguagePicker() {
-    showModalBottomSheet(
+  void _showDeleteAccountDialog() {
+    final passwordController = TextEditingController();
+    bool obscure = true;
+    bool loading = false;
+    String? error;
+
+    showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
+      barrierDismissible: !loading,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Delete Account',
+            style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This will permanently delete your account and all your data (cycle logs, symptoms, predictions, chat history, reminders). This action cannot be undone.',
+                style: TextStyle(fontSize: 13, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: obscure,
+                enabled: !loading,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Confirm your password',
+                  isDense: true,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscure ? Icons.visibility_off : Icons.visibility,
+                      size: 18,
+                    ),
+                    onPressed: () => setDialogState(() => obscure = !obscure),
                   ),
                 ),
               ),
-            ),
-            Text(
-              'Select Language',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF3C3489),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ..._languages.map(
-              (lang) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  lang,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: const Color(0xFF2C2C2A),
-                  ),
+              if (error != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
                 ),
-                trailing: _language == lang
-                    ? const Icon(
-                        Icons.check_circle,
-                        color: Color(0xFF7F77DD),
-                        size: 20,
-                      )
-                    : null,
-                onTap: () {
-                  Navigator.pop(context);
-                  _setLanguage(lang);
-                },
-              ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: loading ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
             ),
-            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: loading
+                  ? null
+                  : () async {
+                      if (passwordController.text.isEmpty) {
+                        setDialogState(
+                          () => error = 'Enter your password to confirm.',
+                        );
+                        return;
+                      }
+                      setDialogState(() {
+                        loading = true;
+                        error = null;
+                      });
+                      final result = await AuthService.deleteAccount(
+                        password: passwordController.text,
+                      );
+                      if (result['success'] != true) {
+                        setDialogState(() {
+                          loading = false;
+                          error = result['error'] as String;
+                        });
+                        return;
+                      }
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      if (mounted) {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          (route) => false,
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: loading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Delete', style: TextStyle(color: Colors.white)),
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _showDeleteAccountDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Delete Account',
-          style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
-        ),
-        content: const Text(
-          'This will permanently delete your account and all your data. This action cannot be undone.',
-          style: TextStyle(fontSize: 13, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await AuthService.signOut();
-                if (mounted) {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                }
-              } catch (e) {
-                _showSnack('Error: $e');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-    final isDark = themeProvider.isDarkMode;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5FB),
       body: SafeArea(
@@ -234,60 +208,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── APPEARANCE ─────────────────────────────────
-                    _sectionTitle('APPEARANCE'),
-                    _settingsCard([
-                      _toggleTile(
-                        icon: Icons.dark_mode_outlined,
-                        iconBg: const Color(0xFF221F30),
-                        iconColor: Colors.white,
-                        title: 'Dark Mode',
-                        subtitle: isDark
-                            ? 'Dark theme active'
-                            : 'Light theme active',
-                        value: isDark,
-                        onChanged: (v) => themeProvider.setDarkMode(v),
-                      ),
-                    ]),
-
-                    // ── LANGUAGE ───────────────────────────────────
-                    _sectionTitle('LANGUAGE'),
-                    _settingsCard([
-                      ListTile(
-                        leading: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE6F1FB),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.language,
-                            color: Color(0xFF378ADD),
-                            size: 18,
-                          ),
-                        ),
-                        title: Text(
-                          'App Language',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF2C2C2A),
-                          ),
-                        ),
-                        subtitle: Text(
-                          _language,
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                        trailing: Icon(
-                          Icons.chevron_right,
-                          color: Colors.grey,
-                          size: 18,
-                        ),
-                        onTap: _showLanguagePicker,
-                      ),
-                    ]),
-
                     // ── NOTIFICATIONS ──────────────────────────────
                     _sectionTitle('NOTIFICATIONS'),
                     _settingsCard([
@@ -362,7 +282,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: Colors.grey,
                           size: 18,
                         ),
-                        onTap: () => _showSnack('Opening Privacy Policy...'),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LegalScreen(
+                              title: 'Privacy Policy',
+                              body: LegalScreen.privacyPolicy,
+                            ),
+                          ),
+                        ),
                       ),
                       _divider(),
                       ListTile(
@@ -392,7 +320,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: Colors.grey,
                           size: 18,
                         ),
-                        onTap: () => _showSnack('Opening Terms of Service...'),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LegalScreen(
+                              title: 'Terms of Service',
+                              body: LegalScreen.termsOfService,
+                            ),
+                          ),
+                        ),
                       ),
                       _divider(),
                       ListTile(

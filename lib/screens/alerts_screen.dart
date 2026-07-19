@@ -1,5 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+/// Shows the real reminders NotificationService has scheduled (period,
+/// ovulation, wellness check-in, AI insight tip), mirrored into
+/// users/{uid}/alerts. No mock data — an empty list here means no reminder
+/// has actually fired yet.
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
 
@@ -11,81 +17,44 @@ class _AlertsScreenState extends State<AlertsScreen> {
   String _filter = 'All';
   final List<String> _filters = ['All', 'Cycle', 'Wellness', 'Insight'];
 
-  final List<Map<String, dynamic>> _alerts = [
-    {
-      'title': 'Period starting soon',
-      'body':
-          'Your period is estimated to begin in 2 days. Stock up on supplies and take it easy.',
-      'time': 'Today · 8:00 AM',
-      'tag': 'Cycle',
-      'dotColor': Color(0xFF7F77DD),
-      'tagBg': Color(0xFFEEEDFE),
-      'tagText': Color(0xFF3C3489),
-      'read': false,
-    },
-    {
-      'title': 'Wellness reminder',
-      'body':
-          'You haven\'t logged your exercise today. Gentle yoga is recommended for your phase.',
-      'time': 'Today · 7:30 AM',
-      'tag': 'Wellness',
-      'dotColor': Color(0xFF378ADD),
-      'tagBg': Color(0xFFE6F1FB),
-      'tagText': Color(0xFF0C447C),
-      'read': false,
-    },
-    {
-      'title': 'Log your symptoms',
-      'body':
-          'Tracking daily symptoms helps Luna give you more accurate cycle predictions.',
-      'time': 'Yesterday · 9:00 AM',
-      'tag': 'Insight',
-      'dotColor': Color(0xFF97C459),
-      'tagBg': Color(0xFFEAF3DE),
-      'tagText': Color(0xFF27500A),
-      'read': true,
-    },
-    {
-      'title': 'Ovulation window closing',
-      'body':
-          'Your fertile window ends tomorrow. Ovulation was predicted around day 14.',
-      'time': '3 days ago · 8:00 AM',
-      'tag': 'Cycle',
-      'dotColor': Color(0xFF7F77DD),
-      'tagBg': Color(0xFFEEEDFE),
-      'tagText': Color(0xFF3C3489),
-      'read': true,
-    },
-    {
-      'title': 'Weekly exercise summary',
-      'body':
-          'You completed 2 of 4 workouts this week. Keep it up — you\'re doing great!',
-      'time': '4 days ago · 6:00 PM',
-      'tag': 'Wellness',
-      'dotColor': Color(0xFF378ADD),
-      'tagBg': Color(0xFFE6F1FB),
-      'tagText': Color(0xFF0C447C),
-      'read': true,
-    },
-    {
-      'title': 'New AI insight available',
-      'body':
-          'Luna has a new personalised insight based on your recent symptom logs.',
-      'time': '5 days ago · 10:00 AM',
-      'tag': 'Insight',
-      'dotColor': Color(0xFF97C459),
-      'tagBg': Color(0xFFEAF3DE),
-      'tagText': Color(0xFF27500A),
-      'read': true,
-    },
-  ];
+  Color _dotColor(String tag) => switch (tag) {
+    'Wellness' => const Color(0xFF378ADD),
+    'Insight' => const Color(0xFFDDA627),
+    _ => const Color(0xFF7F77DD),
+  };
 
-  List<Map<String, dynamic>> get _filtered => _filter == 'All'
-      ? _alerts
-      : _alerts.where((a) => a['tag'] == _filter).toList();
+  Color _tagBg(String tag) => switch (tag) {
+    'Wellness' => const Color(0xFFE6F1FB),
+    'Insight' => const Color(0xFFFCF3E1),
+    _ => const Color(0xFFEEEDFE),
+  };
+
+  Color _tagText(String tag) => switch (tag) {
+    'Wellness' => const Color(0xFF378ADD),
+    'Insight' => const Color(0xFFB98615),
+    _ => const Color(0xFF3C3489),
+  };
+
+  String _formatTime(DateTime t) {
+    final now = DateTime.now();
+    final hour12 = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    final minute = t.minute.toString().padLeft(2, '0');
+    final ampm = t.hour < 12 ? 'AM' : 'PM';
+    final timeStr = '$hour12:$minute $ampm';
+    if (t.year == now.year && t.month == now.month && t.day == now.day) {
+      return 'Today · $timeStr';
+    }
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${t.day} ${months[t.month - 1]} · $timeStr';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5FB),
       body: SafeArea(
@@ -158,96 +127,158 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
             // Alert list
             Expanded(
-              child: ListView.builder(
-                itemCount: _filtered.length,
-                itemBuilder: (_, i) {
-                  final a = _filtered[i];
-                  return GestureDetector(
-                    onTap: () => setState(() => a['read'] = true),
-                    child: Container(
-                      color: a['read']
-                          ? Colors.transparent
-                          : const Color(0xFFF0EFFE),
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Dot
-                          Padding(
-                            padding: const EdgeInsets.only(top: 5),
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: a['read']
-                                    ? Colors.transparent
-                                    : a['dotColor'],
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Content
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  a['title'],
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: a['read']
-                                        ? FontWeight.normal
-                                        : FontWeight.w600,
-                                    color: const Color(0xFF2C2C2A),
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  a['body'],
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                    height: 1.4,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  a['time'],
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Tag badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: a['tagBg'],
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              a['tag'],
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: a['tagText'],
-                              ),
-                            ),
-                          ),
-                        ],
+              child: uid == null
+                  ? const Center(
+                      child: Text(
+                        'Sign in to see your alerts',
+                        style: TextStyle(color: Colors.grey),
                       ),
+                    )
+                  : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(uid)
+                          .collection('alerts')
+                          .orderBy('time', descending: true)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text(
+                              'Could not load alerts: ${snapshot.error}',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          );
+                        }
+                        final docs = snapshot.data?.docs ?? [];
+                        final filtered = _filter == 'All'
+                            ? docs
+                            : docs
+                                  .where((d) => d.data()['tag'] == _filter)
+                                  .toList();
+                        if (filtered.isEmpty) {
+                          return const Center(
+                            child: Text(
+                              'No alerts yet',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          );
+                        }
+                        return ListView.builder(
+                          itemCount: filtered.length,
+                          itemBuilder: (_, i) {
+                            final doc = filtered[i];
+                            final a = doc.data();
+                            final tag = a['tag'] as String? ?? 'Cycle';
+                            final read = a['read'] == true;
+                            final time = (a['time'] as Timestamp?)?.toDate();
+
+                            return GestureDetector(
+                              onTap: read
+                                  ? null
+                                  : () => doc.reference.update({'read': true}),
+                              child: Container(
+                                color: read
+                                    ? Colors.transparent
+                                    : const Color(0xFFF0EFFE),
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  14,
+                                  16,
+                                  14,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Dot
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 5),
+                                      child: Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: read
+                                              ? Colors.transparent
+                                              : _dotColor(tag),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    // Content
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            a['title'] as String? ?? '',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: read
+                                                  ? FontWeight.normal
+                                                  : FontWeight.w600,
+                                              color: const Color(0xFF2C2C2A),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            a['body'] as String? ?? '',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            time != null
+                                                ? _formatTime(time)
+                                                : '',
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Tag badge
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _tagBg(tag),
+                                        borderRadius: BorderRadius.circular(
+                                          20,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        tag,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                          color: _tagText(tag),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ),

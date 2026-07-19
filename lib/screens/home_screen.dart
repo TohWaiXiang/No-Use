@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -34,6 +35,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _daysUntilPeriod = -1;
   bool _loadingPrediction = false;
   List<DateTime> _predictedDays = [];
+
+  // ── Hormonal balance (PSS-10 / PSQI monthly check-in) ──────────────
+  String? _hormonalRisk;
+  int? _pss10Score;
+  int? _psqiGlobalScore;
 
   static final List<Map<String, dynamic>> _availableSymptoms = [
     {'name': 'Cramps', 'icon': Icons.sick_outlined},
@@ -120,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadData();
+    NotificationService.instance.requestPermissions();
   }
 
   Future<void> _loadData() async {
@@ -150,6 +157,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _periodHistory = history;
       _symptomLogs = symLogs;
       _medicationLogs = medLogs;
+      _hormonalRisk = prefs.getString('hormonal_risk');
+      _pss10Score = prefs.getInt('pss10_score');
+      _psqiGlobalScore = prefs.getInt('psqi_global_score');
     });
 
     if (history.isNotEmpty) _fetchPrediction();
@@ -1373,21 +1383,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // ════════════════════════════════════════════════════════════════
   //  BACKEND + ML
   // ════════════════════════════════════════════════════════════════
-  Future<void> _postToBackend(
-    String endpoint,
-    Map<String, dynamic> body,
-  ) async {
-    try {
-      await http
-          .post(
-            Uri.parse('http://192.168.0.10:8000$endpoint'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 8));
-    } catch (_) {}
-  }
-
   Future<void> _fetchPrediction() async {
     if (_periodHistory.isEmpty) return;
     setState(() => _loadingPrediction = true);
@@ -1418,7 +1413,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final response = await http
           .post(
-            Uri.parse('http://192.168.0.10:8000/predict'),
+            Uri.parse('http://192.168.0.11:8000/predict'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'user_id': prefs.getString('uid') ?? 'user_001',
@@ -1464,18 +1459,18 @@ class _HomeScreenState extends State<HomeScreen> {
     double avgDuration,
   ) async {
     try {
+      final lastStart = _parseDate(_periodHistory.last['start']);
       final isoKey = data['next_period_start_iso'] as String?;
       DateTime? nextStart;
       if (isoKey != null && isoKey.isNotEmpty) {
         nextStart = DateTime.parse(isoKey);
       } else {
-        nextStart = _parseDate(
-          _periodHistory.last['start'],
-        ).add(Duration(days: avgCycle.round()));
+        nextStart = lastStart.add(Duration(days: avgCycle.round()));
       }
       final nextEnd = nextStart.add(Duration(days: avgDuration.round() - 1));
       final predicted = _buildRange(nextStart, nextEnd);
       final days = nextStart.difference(DateTime.now()).inDays;
+      final cycleDay = DateTime.now().difference(lastStart).inDays + 1;
 
       final nextPeriod =
           data['next_period_start']?.toString() ?? _fmt(nextStart);
@@ -1499,6 +1494,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadingPrediction = false;
       });
 
+      await NotificationService.instance.updatePredictedDates(
+        periodStart: nextStart,
+        ovulationDay: nextStart.subtract(const Duration(days: 14)),
+      );
+
       await _savePredictionToFirestore(
         nextPeriod: nextPeriod,
         fertileWindow: fertileWindow,
@@ -1507,6 +1507,7 @@ class _HomeScreenState extends State<HomeScreen> {
         currentPhase: currentPhase,
         phaseDesc: phaseDesc,
         days: days,
+        cycleDay: cycleDay,
         nextStart: nextStart,
         nextEnd: nextEnd,
         avgCycle: avgCycle,
@@ -1559,6 +1560,11 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadingPrediction = false;
     });
 
+    await NotificationService.instance.updatePredictedDates(
+      periodStart: nextStart,
+      ovulationDay: ovulation,
+    );
+
     await _savePredictionToFirestore(
       nextPeriod: nextPeriod,
       fertileWindow: fertileWindow,
@@ -1567,6 +1573,7 @@ class _HomeScreenState extends State<HomeScreen> {
       currentPhase: phase,
       phaseDesc: desc,
       days: days,
+      cycleDay: cycleDay,
       nextStart: nextStart,
       nextEnd: nextEnd,
       avgCycle: avgCycle,
@@ -1583,6 +1590,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required String currentPhase,
     required String phaseDesc,
     required int days,
+    required int cycleDay,
     required DateTime nextStart,
     required DateTime nextEnd,
     required double avgCycle,
@@ -1605,6 +1613,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'current_phase': currentPhase,
             'phase_description': phaseDesc,
             'days_until_period': days,
+            'cycle_day': cycleDay,
             'next_period_start_iso': nextStart.toIso8601String(),
             'next_period_end_iso': nextEnd.toIso8601String(),
             'avg_cycle_length': avgCycle,
@@ -2461,6 +2470,74 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
+                      if (_hormonalRisk != null) ...[
+                        _divider(),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: _hormonalRiskColor().withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.monitor_heart_outlined,
+                                  color: _hormonalRiskColor(),
+                                  size: 15,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Hormonal Balance',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'PSS-10: $_pss10Score/40 · PSQI: $_psqiGlobalScore/21',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _hormonalRiskColor().withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '$_hormonalRisk risk',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _hormonalRiskColor(),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -3553,41 +3630,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   );
 
-  Widget _buildActionCard(
-    IconData icon,
-    Color iconBg,
-    String title,
-    String sub,
-    VoidCallback onTap,
-  ) => Container(
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFEEEDFE)),
-    ),
-    child: ListTile(
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: iconBg,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: const Color(0xFF7F77DD), size: 18),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-      ),
-      subtitle: Text(
-        sub,
-        style: const TextStyle(fontSize: 11, color: Colors.grey),
-      ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
-      onTap: onTap,
-    ),
-  );
-
   Widget _predRow(
     IconData icon,
     Color iconBg,
@@ -3636,6 +3678,17 @@ class _HomeScreenState extends State<HomeScreen> {
     indent: 16,
     endIndent: 16,
   );
+
+  Color _hormonalRiskColor() {
+    switch (_hormonalRisk) {
+      case 'High':
+        return const Color(0xFFE24B4A);
+      case 'Moderate':
+        return const Color(0xFFD79B2E);
+      default:
+        return const Color(0xFF3FA66B);
+    }
+  }
 
   Widget _phaseChip(String label, bool active) => Expanded(
     child: Container(

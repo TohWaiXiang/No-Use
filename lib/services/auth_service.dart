@@ -21,6 +21,7 @@ class AuthService {
     required double sleepHours,
     required int exerciseDays,
     required String fitnessLevel,
+    double weightKg = 0.0,
   }) async {
     try {
       final cred = await _auth.createUserWithEmailAndPassword(
@@ -41,6 +42,7 @@ class AuthService {
         'sleep_hours': sleepHours,
         'exercise_days': exerciseDays,
         'fitness_level': fitnessLevel,
+        'weight_kg': weightKg,
         'created_at': FieldValue.serverTimestamp(),
       };
 
@@ -134,6 +136,70 @@ class AuthService {
     await _auth.signOut();
   }
 
+  // Every users/{uid} subcollection written by the app. Firestore doesn't
+  // cascade-delete subcollections when the parent doc is deleted, so each
+  // one must be wiped explicitly before the account is considered gone.
+  static const List<String> _userSubcollections = [
+    'period_history',
+    'symptom_logs',
+    'cycle_logs',
+    'medication_logs',
+    'predictions',
+    'chat_logs',
+    'alerts',
+    'profile_history',
+  ];
+
+  // ── Delete account ──────────────────────────────────────────
+  // Firebase requires a recent login to delete the Auth user, so we
+  // reauthenticate with the supplied password first. Firestore data must be
+  // wiped *before* the Auth user is deleted, since the security rules key
+  // off request.auth.uid and that stops existing the moment delete() runs.
+  static Future<Map<String, dynamic>> deleteAccount({
+    required String password,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return {'success': false, 'error': 'No signed-in user.'};
+    }
+    final uid = user.uid;
+
+    try {
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: user.email ?? '', password: password),
+      );
+
+      final userDoc = _db.collection('users').doc(uid);
+      for (final name in _userSubcollections) {
+        await _deleteCollection(userDoc.collection(name));
+      }
+      await userDoc.delete();
+
+      await user.delete();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      return {'success': true};
+    } on FirebaseAuthException catch (e) {
+      return {'success': false, 'error': _err(e.code)};
+    } catch (e) {
+      return {'success': false, 'error': 'Failed to delete account: $e'};
+    }
+  }
+
+  static Future<void> _deleteCollection(CollectionReference ref) async {
+    const chunkSize = 400; // stay under Firestore's 500-write batch limit
+    final docs = await ref.get();
+    for (var i = 0; i < docs.docs.length; i += chunkSize) {
+      final batch = _db.batch();
+      for (final doc in docs.docs.skip(i).take(chunkSize)) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
+
   // ── Private helpers ──────────────────────────────────────────
   static Future<Map<String, dynamic>?> _loadFromFirestore(String uid) async {
     final doc = await _db.collection('users').doc(uid).get();
@@ -171,6 +237,9 @@ class AuthService {
     if (p['fitness_level'] != null) {
       prefs.setString('fitness_level', p['fitness_level']);
     }
+    if (p['weight_kg'] != null) {
+      prefs.setDouble('weight_kg', (p['weight_kg'] as num).toDouble());
+    }
   }
 
   static Future<Map<String, dynamic>?> _getCachedProfile() async {
@@ -188,6 +257,7 @@ class AuthService {
       'sleep_hours': prefs.getDouble('sleep_hours') ?? 7.0,
       'exercise_days': prefs.getInt('exercise_days') ?? 3,
       'fitness_level': prefs.getString('fitness_level') ?? 'Beginner',
+      'weight_kg': prefs.getDouble('weight_kg') ?? 0.0,
     };
   }
 
@@ -209,6 +279,8 @@ class AuthService {
         return 'Too many attempts. Please try again later.';
       case 'network-request-failed':
         return 'No internet connection.';
+      case 'requires-recent-login':
+        return 'Please sign out and sign in again, then retry.';
       default:
         return 'Something went wrong. Please try again.';
     }

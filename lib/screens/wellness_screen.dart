@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/gamification_service.dart';
+import 'yoga_level_detail_screen.dart';
 
 class WellnessScreen extends StatefulWidget {
   const WellnessScreen({super.key});
@@ -8,359 +12,309 @@ class WellnessScreen extends StatefulWidget {
 }
 
 class _WellnessScreenState extends State<WellnessScreen> {
-  int? _expandedIndex;
+  int unlockedLevel = 1;
+  int xp = 0;
+  int streakCount = 0;
+  List<int> completedLevels = [];
+  bool isLoading = true;
+  String currentPhase = '—';
 
-  final List<Map<String, dynamic>> _exercises = [
+  // Yoga levels are single poses, one per stage. `apiPoseId` looks the pose
+  // up on the public Yoga API (github.com/alexcumplido/yoga-api) for a
+  // reference image/benefits; it's null for poses outside that API's
+  // 48-pose catalog (Cobra and Legs-Up-the-Wall), which fall back to the
+  // steps below only. Framed around relaxation/stress/sleep, not medical
+  // claims — yoga here supports well-being, it doesn't treat symptoms.
+  final List<Map<String, dynamic>> yogaLevels = [
     {
-      'icon': Icons.self_improvement,
-      'name': 'Gentle Yoga',
-      'meta': '20 min · Reduces bloating & cramps',
-      'badge': 'Easy',
-      'badgeColor': Color(0xFFE6F1FB),
-      'badgeText': Color(0xFF0C447C),
-      'detail':
-          'Hip-opening poses and deep breathing to ease late-luteal tension. Includes child\'s pose, cat-cow and supine twist.',
-      'tip': 'Best done in the morning before breakfast.',
+      'level': 1,
+      'title': "Child's Pose",
+      'durationMinutes': 5,
+      'goal': 'Calm the mind and ease everyday stress',
+      'phase': 'Any',
+      'apiPoseId': 10,
+      'youtubeId': 'eqVMAPM00DM',
+      'steps': [
+        'Kneel on the mat with big toes touching, then sit back onto your heels.',
+        'Separate your knees about hip-width apart and fold forward, resting your torso between your thighs.',
+        'Extend your arms forward or rest them alongside your body, palms up.',
+        'Rest your forehead on the mat and breathe slowly and deeply.',
+        'Stay here, letting your back and shoulders soften with every exhale.',
+      ],
     },
     {
-      'icon': Icons.directions_walk,
-      'name': 'Brisk Walking',
-      'meta': '30 min · Boosts mood & circulation',
-      'badge': 'Easy',
-      'badgeColor': Color(0xFFE6F1FB),
-      'badgeText': Color(0xFF0C447C),
-      'detail':
-          'A steady-pace walk helps regulate cortisol and serotonin during the luteal phase. Avoid high-incline terrain.',
-      'tip': 'Pair with calming music for best effect.',
+      'level': 2,
+      'title': 'Cat-Cow',
+      'durationMinutes': 6,
+      'goal': 'Warm up the spine and release tension',
+      'phase': 'Follicular',
+      'apiPoseId': 7,
+      'youtubeId': 'y39PrKY_4JM',
+      'steps': [
+        'Come onto your hands and knees in a tabletop position, wrists under shoulders and knees under hips.',
+        'Inhale, drop your belly, lift your chest and tailbone for Cow pose.',
+        'Exhale, round your spine toward the ceiling and tuck your chin for Cat pose.',
+        'Continue flowing between Cow and Cat, moving with your breath.',
+        'Return to a neutral spine and pause, noticing the ease in your back.',
+      ],
     },
     {
-      'icon': Icons.pool,
-      'name': 'Light Swimming',
-      'meta': '25 min · Low-impact full body',
-      'badge': 'Moderate',
-      'badgeColor': Color(0xFFFAEEDA),
-      'badgeText': Color(0xFF633806),
-      'detail':
-          'Water resistance reduces joint strain. Focus on gentle freestyle or breaststroke laps.',
-      'tip': 'A warm shower afterward helps relax uterine muscles.',
+      'level': 3,
+      'title': 'Butterfly Pose',
+      'durationMinutes': 8,
+      'goal': 'Gently open the hips for comfort',
+      'phase': 'Menstrual',
+      'apiPoseId': 5,
+      'youtubeId': 'SN9oQCE1zMs',
+      'steps': [
+        'Sit with your spine tall and bring the soles of your feet together in front of you.',
+        'Let your knees drop out to the sides toward the floor.',
+        'Hold your feet or ankles, gently pressing your knees down with your forearms if comfortable.',
+        'Keep your spine long rather than rounding forward.',
+        'Breathe steadily, allowing your hips and inner thighs to soften.',
+      ],
     },
     {
-      'icon': Icons.fitness_center,
-      'name': 'Strength Training',
-      'meta': '40 min · Not recommended today',
-      'badge': 'Avoid',
-      'badgeColor': Color(0xFFEEEDFE),
-      'badgeText': Color(0xFF3C3489),
-      'detail':
-          'High-intensity lifting is not advised during the late luteal phase — recovery ability is reduced.',
-      'tip': 'Schedule this for your follicular phase (days 1–13).',
+      'level': 4,
+      'title': 'Cobra Pose',
+      'durationMinutes': 8,
+      'goal': 'Stretch the front body and relieve stress',
+      'phase': 'Luteal',
+      'apiPoseId': null,
+      'youtubeId': 'n6jrC6WeF84',
+      'steps': [
+        'Lie face down with your legs extended and the tops of your feet on the mat.',
+        'Place your palms under your shoulders, elbows hugging into your sides.',
+        'Press into your hands and lift your chest, keeping your lower ribs on the mat.',
+        'Draw your shoulders back and down, away from your ears.',
+        'Hold for a few breaths, then lower back down slowly.',
+      ],
     },
-  ];
-
-  final List<Map<String, dynamic>> _progress = [
-    //database
-    {'day': 'Mon', 'pct': 1.0, 'done': true},
-    {'day': 'Tue', 'pct': 1.0, 'done': true},
-    {'day': 'Wed', 'pct': 0.6, 'done': false},
-    {'day': 'Thu', 'pct': 0.0, 'done': false},
-    {'day': 'Fri', 'pct': 0.0, 'done': false},
-    {'day': 'Sat', 'pct': 0.0, 'done': false},
-    {'day': 'Sun', 'pct': 0.0, 'done': false},
+    {
+      'level': 5,
+      'title': 'Legs-Up-the-Wall',
+      'durationMinutes': 10,
+      'goal': 'Support deep relaxation and restful sleep',
+      'phase': 'Ovulation',
+      'apiPoseId': null,
+      'youtubeId': 'xmcDj4Bf--0',
+      'steps': [
+        'Sit sideways next to a wall, then swing your legs up as you lie back.',
+        'Scoot your hips as close to the wall as is comfortable.',
+        'Let your legs rest against the wall, arms relaxed by your sides, palms up.',
+        'Close your eyes and breathe slowly, letting your body settle.',
+        'Stay for several minutes, then bend your knees and roll gently to one side to come up.',
+      ],
+    },
   ];
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F5FB),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-                color: const Color(0xFFEEEDFE),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Wellness Exercise',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF3C3489),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Recommended for your cycle phase',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF378ADD),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: const Text(
-                        '◆  Late Luteal Phase · Day 26', //change
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+  void initState() {
+    super.initState();
+    loadProgress();
+  }
 
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Weekly progress
-                    const Text(
-                      'WEEKLY PROGRESS',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFEEEDFE)),
-                      ),
-                      child: Column(
-                        children: _progress.map((p) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 5),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 30,
-                                  child: Text(
-                                    p['day'],
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: p['pct'],
-                                      minHeight: 6,
-                                      backgroundColor: const Color(0xFFF4F5FB),
-                                      valueColor:
-                                          const AlwaysStoppedAnimation<Color>(
-                                            Color(0xFF7F77DD),
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: 32,
-                                  child: Text(
-                                    p['done']
-                                        ? 'Done'
-                                        : p['pct'] == 0.0
-                                        ? '—'
-                                        : '60%',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: p['done']
-                                          ? const Color(0xFF7F77DD)
-                                          : Colors.grey,
-                                    ),
-                                    textAlign: TextAlign.right,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+  bool get _isMenstrualPhase => currentPhase == 'Menstrual';
 
-                    // Recommended exercises
-                    const Text(
-                      'RECOMMENDED FOR TODAY',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...List.generate(_exercises.length, (i) {
-                      final ex = _exercises[i];
-                      final isOpen = _expandedIndex == i;
-                      return GestureDetector(
-                        onTap: () =>
-                            setState(() => _expandedIndex = isOpen ? null : i),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(13),
-                          decoration: BoxDecoration(
-                            color: isOpen
-                                ? const Color(0xFFEEEDFE)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isOpen
-                                  ? const Color(0xFF7F77DD)
-                                  : const Color(0xFFEEEDFE),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEEEDFE),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      ex['icon'],
-                                      color: const Color(0xFF7F77DD),
-                                      size: 18,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          ex['name'],
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                            color: Color(0xFF2C2C2A),
-                                          ),
-                                        ),
-                                        Text(
-                                          ex['meta'],
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 9,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: ex['badgeColor'],
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      ex['badge'],
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w500,
-                                        color: ex['badgeText'],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (isOpen) ...[
-                                const SizedBox(height: 10),
-                                Divider(height: 1, color: Colors.grey.shade200),
-                                const SizedBox(height: 10),
-                                Text(
-                                  ex['detail'],
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                    height: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Icon(
-                                      Icons.lightbulb_outline,
-                                      size: 13,
-                                      color: Color(0xFF7F77DD),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        'AI tip: ${ex['tip']}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF3C3489),
-                                          fontWeight: FontWeight.w500,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
+  Future<void> loadProgress() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      setState(() => isLoading = false);
+      return;
+    }
 
-                    const SizedBox(height: 8),
-                    // AI tip strip
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE6F1FB),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        '💡 Why these? Low-impact movement supports hormonal balance and reduces PMS symptoms during your current luteal phase.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF0C447C),
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
-            ],
-          ),
+    try {
+      final state = await GamificationService.getState();
+
+      final predictionDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('predictions')
+          .doc('latest')
+          .get();
+
+      if (!mounted) return;
+
+      setState(() {
+        unlockedLevel = state['yoga_level'] as int;
+        xp = state['xp'] as int;
+        streakCount = state['streak_count'] as int;
+        completedLevels = List<int>.from(state['completed_levels'] as List);
+        currentPhase = predictionDoc.data()?['current_phase']?.toString() ?? '—';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load progress: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _openLevel(Map<String, dynamic> item) async {
+    final int level = item['level'];
+    final completed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => YogaLevelDetailScreen(
+          level: level,
+          title: item['title'],
+          durationMinutes: item['durationMinutes'],
+          goal: item['goal'],
+          steps: List<String>.from(item['steps']),
+          apiPoseId: item['apiPoseId'] as int?,
+          defaultYoutubeId: item['youtubeId'] as String,
         ),
       ),
+    );
+
+    if (completed == true) {
+      await completeLevel(level);
+    }
+  }
+
+  Future<void> completeLevel(int level) async {
+    final result = await GamificationService.completeLevel(
+      levelId: level,
+      xpReward: level * 10,
+      isMenstrualPhase: _isMenstrualPhase,
+      badgeId: level == yogaLevels.length ? 'yoga_journey_complete' : null,
+    );
+
+    if (!mounted) return;
+
+    if (result['success'] != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save progress: ${result['error']}')),
+      );
+      return;
+    }
+
+    setState(() {
+      unlockedLevel = result['yoga_level'] as int;
+      xp = result['xp'] as int;
+      streakCount = result['streak_count'] as int;
+      completedLevels = List<int>.from(result['completed_levels'] as List);
+    });
+
+    final unlockedNext = result['unlocked_next'] == true;
+    final alreadyCompleted = result['already_completed'] == true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          unlockedNext
+              ? 'Level $level completed! Next level unlocked 🌸  (+${level * 10} XP)'
+              : alreadyCompleted
+                  ? 'Level $level completed again — great consistency!'
+                  : 'Level $level completed! (+${level * 10} XP)',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Yoga & Relaxation Journey 🌸')),
+      body: Column(
+        children: [
+          _buildStatsHeader(),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: yogaLevels.length,
+              itemBuilder: (context, index) {
+                final item = yogaLevels[index];
+                final int level = item['level'];
+                final bool isRecommended =
+                    item['phase'] == 'Any' || item['phase'] == currentPhase;
+                // Sequentially unlocked, or reachable today via a phase
+                // recommendation — a rough period shouldn't be blocked by
+                // an unfinished strength-training level.
+                final bool isUnlocked = level <= unlockedLevel || isRecommended;
+                final bool isCurrent = level == unlockedLevel;
+                final bool isDone = completedLevels.contains(level);
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  color: isUnlocked ? null : Colors.grey.shade200,
+                  child: ListTile(
+                    leading: Icon(
+                      isDone
+                          ? Icons.check_circle
+                          : isUnlocked
+                              ? Icons.self_improvement
+                              : Icons.lock,
+                      color: isDone
+                          ? Colors.green
+                          : isCurrent
+                              ? Colors.pink
+                              : null,
+                    ),
+                    title: Text(
+                      '${'⭐' * level}  ${item['title']}',
+                      style: TextStyle(
+                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    subtitle: Text(
+                      isRecommended && !isCurrent
+                          ? '${item['durationMinutes']} min • ${item['goal']} • Recommended today'
+                          : '${item['durationMinutes']} min • ${item['goal']}',
+                      style: isRecommended && !isCurrent
+                          ? const TextStyle(
+                              color: Colors.pink, fontWeight: FontWeight.w500)
+                          : null,
+                    ),
+                    trailing: isUnlocked
+                        ? ElevatedButton(
+                            onPressed: () => _openLevel(item),
+                            child: const Text('Start'),
+                          )
+                        : Text('Complete Level ${level - 1}',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: const Color(0xFFEEEDFE),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _statItem(Icons.star, '$xp XP', const Color(0xFF3C3489)),
+          _statItem(Icons.local_fire_department, '$streakCount day streak',
+              Colors.deepOrange),
+          _statItem(Icons.flag, 'Level $unlockedLevel', const Color(0xFF7F77DD)),
+        ],
+      ),
+    );
+  }
+
+  Widget _statItem(IconData icon, String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 6),
+        Text(label,
+            style: TextStyle(fontWeight: FontWeight.w600, color: color)),
+      ],
     );
   }
 }

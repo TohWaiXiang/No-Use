@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import 'main_scaffold.dart';
@@ -55,6 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
           await prefs.setString('username', profile['username'] ?? 'User');
           await prefs.setString('uid', profile['uid'] ?? '');
         }
+
+        await NotificationService.instance.rescheduleEnabledReminders();
 
         if (!mounted) return;
         Navigator.pushReplacement(

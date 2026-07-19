@@ -53,3 +53,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Large raw dataset - too big for GitHub (100MB limit)
+mcphases-*.zip

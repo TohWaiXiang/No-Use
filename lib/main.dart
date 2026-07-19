@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:provider/provider.dart';
 import 'firebase_options.dart';
-import 'providers/theme.dart';
+import 'services/notification_service.dart';
 import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
-      child: const LunaApp(),
-    ),
-  );
+  await NotificationService.instance.init();
+  await NotificationService.instance.rescheduleEnabledReminders();
+  runApp(const LunaApp());
 }
 
 class LunaApp extends StatelessWidget {
@@ -21,13 +17,25 @@ class LunaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
     return MaterialApp(
       title: 'Luna Health',
       debugShowCheckedModeBanner: false,
-      theme: themeProvider.lightTheme,
-      darkTheme: themeProvider.darkTheme,
-      themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      theme: ThemeData(
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF7F77DD),
+          brightness: Brightness.light,
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF4F5FB),
+        cardColor: Colors.white,
+        useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFEEEDFE),
+          foregroundColor: Color(0xFF3C3489),
+          elevation: 0,
+        ),
+        dividerColor: const Color(0xFFEEEDFE),
+      ),
       home: const LoginScreen(),
     );
   }

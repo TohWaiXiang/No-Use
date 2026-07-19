@@ -1,4 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/auth_service.dart';
+import '../widgets/chat_infographics.dart';
+
+const String _backendBaseUrl = 'http://192.168.0.11:8000';
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
@@ -13,28 +20,20 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   bool _showQuickPills = true;
   bool _isTyping = false;
 
+  static const Map<String, String> _chartTitles = {
+    'cycle_phase': 'Your Cycle Phase',
+    'fertile_window': 'Fertile Window',
+    'symptom_trend': 'Symptom Trend',
+  };
+
   final List<Map<String, dynamic>> _messages = [
     {
-      'role': 'bot',
+      'role': 'assistant',
+      'type': 'text',
       'text':
-          'Hi XXX! I\'m Luna, your menstrual health assistant. Ask me anything about your cycle, symptoms, or wellness.',
+          'Hi! I\'m Luna, your menstrual health assistant. Ask me anything about your cycle, symptoms, or wellness.',
     },
   ];
-
-  final Map<String, String> _replies = {
-    'period late':
-        'Your period can be late due to stress, sleep changes, or hormonal shifts. You\'re currently on day 26 of a 28-day cycle — still within normal range!',
-    'cramp':
-        'Gentle yoga and walking are best for cramps. Low-impact movement boosts blood flow and reduces prostaglandins. Check your Wellness page for today\'s full plan!',
-    'fertile':
-        'Based on your 28-day cycle, your fertile window is days 10–16, with peak ovulation around day 14. Your next window starts in about 2 weeks.',
-    'phase':
-        'You are currently in the late luteal phase (day 26). Progesterone is dropping, which may cause bloating, mood changes and fatigue. This is completely normal.',
-    'symptom':
-        'Common late-luteal symptoms include bloating, breast tenderness, mood swings and fatigue. Log your symptoms daily so Luna can give you more accurate predictions.',
-    'exercise':
-        'During the luteal phase, low-impact exercises like yoga, walking and swimming are recommended. Avoid high-intensity workouts as recovery is slower.',
-  };
 
   final List<String> _quickQuestions = [
     'Why is my period late?',
@@ -43,31 +42,138 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     'What phase am I in?',
   ];
 
-  String _getReply(String input) {
-    final lower = input.toLowerCase();
-    for (final key in _replies.keys) {
-      if (lower.contains(key)) return _replies[key]!;
-    }
-    return 'I\'m here to help with your cycle and wellness questions. For personalised medical advice, please consult a healthcare professional.';
+  @override
+  void initState() {
+    super.initState();
+    _loadGreeting();
+    _loadChatHistory();
   }
 
-  void _send(String text) {
+  Future<void> _loadGreeting() async {
+    final profile = await AuthService.getUserProfile();
+    final username = profile?['username'] as String?;
+    if (username != null && username.isNotEmpty && mounted) {
+      setState(() {
+        _messages[0]['text'] =
+            'Hi $username! I\'m Luna, your menstrual health assistant. Ask me anything about your cycle, symptoms, or wellness.';
+      });
+    }
+  }
+
+  // ── Restore prior turns so the conversation survives app restarts ──
+  Future<void> _loadChatHistory() async {
+    final uid = AuthService.userId;
+    if (uid.isEmpty) return;
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('chat_logs')
+          .orderBy('timestamp')
+          .limit(50)
+          .get();
+      if (snap.docs.isEmpty || !mounted) return;
+      final history = <Map<String, dynamic>>[];
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        history.add({
+          'role': 'user',
+          'type': 'text',
+          'text': data['message'] as String? ?? '',
+        });
+        history.add({
+          'role': 'assistant',
+          'type': 'text',
+          'text': data['reply'] as String? ?? '',
+        });
+      }
+      setState(() {
+        _messages.addAll(history);
+        _showQuickPills = false;
+      });
+      _scrollToBottom();
+    } catch (e) {
+      debugPrint('Firestore chat history load error: $e');
+    }
+  }
+
+  // Content sent to the backend for a prior message, whatever its rendered form was.
+  String _contentForApi(Map<String, dynamic> m) {
+    if (m['type'] == 'infographic') {
+      return 'Displayed a ${m['chart']} infographic to the user.';
+    }
+    return m['text'] as String? ?? '';
+  }
+
+  // The backend owns the OpenAI key, pulls Firestore context, calls the model,
+  // and writes the chat_logs entry — the app never talks to OpenAI directly.
+  Future<Map<String, dynamic>> _getReply(String input) async {
+    final uid = AuthService.userId;
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_backendBaseUrl/chatbot'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'user_id': uid,
+              'message': input,
+              'history': _messages
+                  .map((m) => {'role': m['role'], 'content': _contentForApi(m)})
+                  .toList(),
+            }),
+          )
+          .timeout(const Duration(seconds: 40));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['type'] == 'infographic') {
+          return {
+            'type': 'infographic',
+            'chart': data['chart'] as String,
+            'data': Map<String, dynamic>.from(data['data'] as Map),
+          };
+        }
+        return {'type': 'text', 'text': data['text'] as String? ?? ''};
+      }
+
+      String reason = 'Please try again.';
+      try {
+        final errorBody = jsonDecode(response.body);
+        final detail = errorBody['detail'];
+        if (detail is String) reason = detail;
+      } catch (_) {
+        // Body wasn't the expected JSON error shape — keep the generic reason.
+      }
+      return {
+        'type': 'text',
+        'text': 'Sorry, I ran into an error (${response.statusCode}): $reason',
+      };
+    } catch (e) {
+      return {
+        'type': 'text',
+        'text': 'Sorry, I couldn\'t reach the chatbot service. Please check your connection and try again.',
+      };
+    }
+  }
+
+  void _send(String text) async {
     if (text.trim().isEmpty) return;
+    final trimmed = text.trim();
     setState(() {
-      _messages.add({'role': 'user', 'text': text.trim()});
+      _messages.add({'role': 'user', 'type': 'text', 'text': trimmed});
       _showQuickPills = false;
       _isTyping = true;
     });
     _controller.clear();
     _scrollToBottom();
 
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      setState(() {
-        _isTyping = false;
-        _messages.add({'role': 'bot', 'text': _getReply(text)});
-      });
-      _scrollToBottom();
+    final reply = await _getReply(trimmed);
+
+    setState(() {
+      _isTyping = false;
+      _messages.add({'role': 'assistant', ...reply});
     });
+    _scrollToBottom();
   }
 
   void _scrollToBottom() {
@@ -138,8 +244,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 itemBuilder: (_, i) {
                   if (i < _messages.length) {
                     final msg = _messages[i];
-                    final isBot = msg['role'] == 'bot';
-                    return _buildBubble(msg['text'], isBot);
+                    final isBot = msg['role'] == 'assistant';
+                    if (msg['type'] == 'infographic') {
+                      return _buildInfographicBubble(msg, isBot);
+                    }
+                    return _buildBubble(msg['text'] as String, isBot);
                   } else if (_showQuickPills && i == _messages.length) {
                     return _buildQuickPills();
                   } else {
@@ -233,6 +342,47 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             color: isBot ? const Color(0xFF2C2C2A) : Colors.white,
             height: 1.5,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfographicBubble(Map<String, dynamic> msg, bool isBot) {
+    final chart = msg['chart'] as String;
+    final data = Map<String, dynamic>.from(msg['data'] as Map);
+    return Align(
+      alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.82,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(14),
+            topRight: const Radius.circular(14),
+            bottomLeft: Radius.circular(isBot ? 4 : 14),
+            bottomRight: Radius.circular(isBot ? 14 : 4),
+          ),
+          border: Border.all(color: const Color(0xFFEEEDFE)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _chartTitles[chart] ?? 'Overview',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF3C3489),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ChatInfographic(chart: chart, data: data),
+          ],
         ),
       ),
     );

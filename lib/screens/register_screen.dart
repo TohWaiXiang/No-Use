@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import 'main_scaffold.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,6 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _cycleLengthCtrl = TextEditingController(text: '28');
   final _periodDurCtrl = TextEditingController(text: '5');
   final _sleepCtrl = TextEditingController(text: '7');
+  final _weightCtrl = TextEditingController();
 
   int _stressLevel = 2;
   int _exerciseDays = 3;
@@ -46,6 +48,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _cycleLengthCtrl.dispose();
     _periodDurCtrl.dispose();
     _sleepCtrl.dispose();
+    _weightCtrl.dispose();
     super.dispose();
   }
 
@@ -120,6 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       sleepHours: double.tryParse(_sleepCtrl.text) ?? 7.0,
       exerciseDays: _exerciseDays,
       fitnessLevel: _fitnessLevel,
+      weightKg: double.tryParse(_weightCtrl.text) ?? 0.0,
     );
 
     if (!mounted) return;
@@ -128,6 +132,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('username', _usernameCtrl.text.trim());
       await prefs.setString('uid', result['uid']);
+      await NotificationService.instance.rescheduleEnabledReminders();
 
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -344,6 +349,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
             controller: _ageCtrl,
             hint: 'eg: 25',
             icon: Icons.cake_outlined,
+            keyboard: TextInputType.number,
+          ),
+          const SizedBox(height: 14),
+
+          _label('Weight (kg)'),
+          _input(
+            controller: _weightCtrl,
+            hint: 'eg: 55',
+            icon: Icons.monitor_weight_outlined,
             keyboard: TextInputType.number,
           ),
           const SizedBox(height: 14),
