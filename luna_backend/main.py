@@ -6,6 +6,7 @@ import joblib
 import numpy as np
 import firebase_admin
 from firebase_admin import credentials, firestore
+import base64
 import os
 import re
 import json
@@ -18,14 +19,14 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Locally the key file sits in firebase_config/ (gitignored). On a host like
 # Railway there's no such file in the deploy, so the same JSON is provided
-# via an env var instead — set FIREBASE_SERVICE_ACCOUNT_JSON to the file's
-# full contents in the host's dashboard.
+# via an env var instead — base64-encoded, because pasting the raw JSON into
+# a dashboard text box mangles the multi-line private_key field's newlines.
 _firebase_json_env = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
-cred = (
-    credentials.Certificate(json.loads(_firebase_json_env))
-    if _firebase_json_env
-    else credentials.Certificate('firebase_config/serviceAccountKey.json')
-)
+if _firebase_json_env:
+    decoded = base64.b64decode(_firebase_json_env).decode()
+    cred = credentials.Certificate(json.loads(decoded))
+else:
+    cred = credentials.Certificate('firebase_config/serviceAccountKey.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
