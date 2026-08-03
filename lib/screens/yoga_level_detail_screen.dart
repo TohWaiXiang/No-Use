@@ -8,13 +8,14 @@ import '../services/yoga_api_service.dart';
 /// instructions (always available), optionally enriched with a reference
 /// image/benefits from the Yoga API, plus a demonstration video embedded
 /// and played directly from YouTube. Completion is reported back via
-/// Navigator.pop(true) once the user has actually started the countdown,
-/// rather than the moment they tap in.
+/// Navigator.pop with a result map once the user has actually started the
+/// countdown, rather than the moment they tap in.
 class YogaLevelDetailScreen extends StatefulWidget {
   final int level;
   final String title;
   final int durationMinutes;
   final String goal;
+  final String guide;
   final List<String> steps;
   final int? apiPoseId;
 
@@ -30,6 +31,7 @@ class YogaLevelDetailScreen extends StatefulWidget {
     required this.title,
     required this.durationMinutes,
     required this.goal,
+    required this.guide,
     required this.steps,
     required this.apiPoseId,
     required this.defaultYoutubeId,
@@ -45,6 +47,8 @@ class _YogaLevelDetailScreenState extends State<YogaLevelDetailScreen> {
   bool _started = false;
   YogaPose? _apiPose;
   late YoutubePlayerController _videoController;
+  int? _comfortBefore;
+  int? _stressBefore;
 
   @override
   void initState() {
@@ -90,8 +94,13 @@ class _YogaLevelDetailScreenState extends State<YogaLevelDetailScreen> {
     super.dispose();
   }
 
-  void _beginPractice() {
-    setState(() => _started = true);
+  Future<void> _beginPractice() async {
+    final before = await _askRatings(title: 'Before you start');
+    setState(() {
+      _comfortBefore = before?.comfort;
+      _stressBefore = before?.stress;
+      _started = true;
+    });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining <= 0) {
         timer.cancel();
@@ -99,6 +108,77 @@ class _YogaLevelDetailScreenState extends State<YogaLevelDetailScreen> {
       }
       setState(() => _secondsRemaining--);
     });
+  }
+
+  Future<void> _markComplete() async {
+    final after = await _askRatings(title: 'How do you feel now?', withNote: true);
+    if (!mounted) return;
+    Navigator.of(context).pop({
+      'completed': true,
+      'comfortBefore': _comfortBefore,
+      'stressBefore': _stressBefore,
+      'comfortAfter': after?.comfort,
+      'stressAfter': after?.stress,
+      'note': after?.note,
+    });
+  }
+
+  /// Quick 1-5 comfort/stress check-in. Skippable — this is for the user's
+  /// own tracking, not a gate on completing the practice.
+  Future<_Ratings?> _askRatings({required String title, bool withNote = false}) {
+    int comfort = 3;
+    int stress = 3;
+    final noteCtrl = TextEditingController();
+    return showDialog<_Ratings>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Comfort: $comfort / 5'),
+              Slider(
+                value: comfort.toDouble(),
+                min: 1,
+                max: 5,
+                divisions: 4,
+                label: '$comfort',
+                onChanged: (v) => setDialogState(() => comfort = v.round()),
+              ),
+              Text('Stress: $stress / 5'),
+              Slider(
+                value: stress.toDouble(),
+                min: 1,
+                max: 5,
+                divisions: 4,
+                label: '$stress',
+                onChanged: (v) => setDialogState(() => stress = v.round()),
+              ),
+              if (withNote)
+                TextField(
+                  controller: noteCtrl,
+                  decoration: const InputDecoration(hintText: 'Optional note'),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Skip'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(
+                ctx,
+                _Ratings(comfort, stress, noteCtrl.text.trim()),
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String get _timeLabel {
@@ -121,8 +201,36 @@ class _YogaLevelDetailScreenState extends State<YogaLevelDetailScreen> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   Text(
-                    '${widget.durationMinutes} min • ${widget.goal}',
+                    '${widget.durationMinutes} min session • ${widget.goal}',
                     style: const TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEEDFE),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      widget.guide,
+                      style: const TextStyle(
+                          color: Color(0xFF3C3489), fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade200),
+                    ),
+                    child: const Text(
+                      'Practise within your comfort level and stop if you feel '
+                      'pain, dizziness or discomfort. These sessions support '
+                      'general wellness and do not replace medical care.',
+                      style: TextStyle(fontSize: 12, height: 1.4),
+                    ),
                   ),
                   if (_apiPose != null) ...[
                     const SizedBox(height: 12),
@@ -207,9 +315,7 @@ class _YogaLevelDetailScreenState extends State<YogaLevelDetailScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: !_started
-                          ? _beginPractice
-                          : () => Navigator.of(context).pop(true),
+                      onPressed: !_started ? _beginPractice : _markComplete,
                       child: Text(!_started ? 'Begin Practice' : 'Mark Complete'),
                     ),
                   ),
@@ -221,4 +327,11 @@ class _YogaLevelDetailScreenState extends State<YogaLevelDetailScreen> {
       ),
     );
   }
+}
+
+class _Ratings {
+  final int comfort;
+  final int stress;
+  final String? note;
+  _Ratings(this.comfort, this.stress, [this.note]);
 }

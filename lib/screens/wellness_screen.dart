@@ -18,20 +18,30 @@ class _WellnessScreenState extends State<WellnessScreen> {
   List<int> completedLevels = [];
   bool isLoading = true;
   String currentPhase = '—';
+  int? stressLevel; // 0-5, from the profile's onboarding check-in.
 
-  // Yoga levels are single poses, one per stage. `apiPoseId` looks the pose
-  // up on the public Yoga API (github.com/alexcumplido/yoga-api) for a
-  // reference image/benefits; it's null for poses outside that API's
-  // 48-pose catalog (Cobra and Legs-Up-the-Wall), which fall back to the
-  // steps below only. Framed around relaxation/stress/sleep, not medical
-  // claims — yoga here supports well-being, it doesn't treat symptoms.
+  // Yoga levels are one pose each, but `durationMinutes` is total session
+  // time, not one continuous hold — `guide` spells out the actual
+  // hold/repeat pattern so a level never reads as "hold Cobra for 8
+  // minutes straight". `apiPoseId` looks the pose up on the public Yoga API
+  // (github.com/alexcumplido/yoga-api) for a reference image/benefits;
+  // null for poses outside that API's 48-pose catalog (Cobra and
+  // Legs-Up-the-Wall), which fall back to the steps below only.
+  //
+  // `energyTag` + `recommendedFor` are deliberately soft, non-medical
+  // framing ("Low energy or mild discomfort") rather than a hard
+  // phase-to-pose prescription — see _energyLevel below for how "today's
+  // recommendation" is actually derived.
   final List<Map<String, dynamic>> yogaLevels = [
     {
       'level': 1,
       'title': "Child's Pose",
       'durationMinutes': 5,
       'goal': 'Calm the mind and ease everyday stress',
-      'phase': 'Any',
+      'guide': 'Rest here for 1–3 minutes, breathing deeply.',
+      'category': 'Restorative',
+      'energyTag': 'low',
+      'recommendedFor': 'Low energy or feeling overwhelmed',
       'apiPoseId': 10,
       'youtubeId': 'eqVMAPM00DM',
       'steps': [
@@ -47,7 +57,10 @@ class _WellnessScreenState extends State<WellnessScreen> {
       'title': 'Cat-Cow',
       'durationMinutes': 6,
       'goal': 'Warm up the spine and release tension',
-      'phase': 'Follicular',
+      'guide': 'Flow slowly for 8–10 rounds, moving with your breath.',
+      'category': 'Gentle movement',
+      'energyTag': 'medium',
+      'recommendedFor': 'Mild stiffness or moderate energy',
       'apiPoseId': 7,
       'youtubeId': 'y39PrKY_4JM',
       'steps': [
@@ -63,7 +76,10 @@ class _WellnessScreenState extends State<WellnessScreen> {
       'title': 'Butterfly Pose',
       'durationMinutes': 8,
       'goal': 'Gently open the hips for comfort',
-      'phase': 'Menstrual',
+      'guide': "Hold 1–2 minutes, release, repeat if you'd like.",
+      'category': 'Gentle movement',
+      'energyTag': 'low',
+      'recommendedFor': 'Low energy or mild menstrual discomfort',
       'apiPoseId': 5,
       'youtubeId': 'SN9oQCE1zMs',
       'steps': [
@@ -79,7 +95,10 @@ class _WellnessScreenState extends State<WellnessScreen> {
       'title': 'Cobra Pose',
       'durationMinutes': 8,
       'goal': 'Stretch the front body and relieve stress',
-      'phase': 'Luteal',
+      'guide': 'Hold 15–30 seconds, then release. Repeat 2–3 times.',
+      'category': 'Energizing',
+      'energyTag': 'high',
+      'recommendedFor': 'Higher energy or wanting an active stretch',
       'apiPoseId': null,
       'youtubeId': 'n6jrC6WeF84',
       'steps': [
@@ -87,7 +106,8 @@ class _WellnessScreenState extends State<WellnessScreen> {
         'Place your palms under your shoulders, elbows hugging into your sides.',
         'Press into your hands and lift your chest, keeping your lower ribs on the mat.',
         'Draw your shoulders back and down, away from your ears.',
-        'Hold for a few breaths, then lower back down slowly.',
+        'Hold for 15–30 seconds, breathing steadily, then lower back down slowly.',
+        'Rest for a few breaths, then repeat 2–3 times.',
       ],
     },
     {
@@ -95,7 +115,10 @@ class _WellnessScreenState extends State<WellnessScreen> {
       'title': 'Legs-Up-the-Wall',
       'durationMinutes': 10,
       'goal': 'Support deep relaxation and restful sleep',
-      'phase': 'Ovulation',
+      'guide': 'Rest here for 5–10 minutes, breathing slowly.',
+      'category': 'Restorative',
+      'energyTag': 'low',
+      'recommendedFor': 'Winding down or trouble sleeping',
       'apiPoseId': null,
       'youtubeId': 'xmcDj4Bf--0',
       'steps': [
@@ -116,6 +139,20 @@ class _WellnessScreenState extends State<WellnessScreen> {
 
   bool get _isMenstrualPhase => currentPhase == 'Menstrual';
 
+  /// Today's suggested energy level ('low'/'medium'/'high'), used only to
+  /// highlight one already-unlocked level as "Recommended today" — never to
+  /// gate access. Combines the predicted cycle phase with reported stress
+  /// (from onboarding) rather than treating phase as the sole signal, since
+  /// there's no clinical basis for "phase X requires pose Y".
+  String get _energyLevel {
+    if (currentPhase == 'Menstrual') return 'low';
+    if ((stressLevel ?? 0) >= 3) return 'low';
+    if (currentPhase == 'Follicular' || currentPhase == 'Ovulation') {
+      return 'high';
+    }
+    return 'medium';
+  }
+
   Future<void> loadProgress() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
@@ -126,6 +163,8 @@ class _WellnessScreenState extends State<WellnessScreen> {
     try {
       final state = await GamificationService.getState();
 
+      final userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final predictionDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
@@ -141,6 +180,7 @@ class _WellnessScreenState extends State<WellnessScreen> {
         streakCount = state['streak_count'] as int;
         completedLevels = List<int>.from(state['completed_levels'] as List);
         currentPhase = predictionDoc.data()?['current_phase']?.toString() ?? '—';
+        stressLevel = (userDoc.data()?['stress_level'] as num?)?.toInt();
       });
     } catch (e) {
       if (!mounted) return;
@@ -154,13 +194,14 @@ class _WellnessScreenState extends State<WellnessScreen> {
 
   Future<void> _openLevel(Map<String, dynamic> item) async {
     final int level = item['level'];
-    final completed = await Navigator.of(context).push<bool>(
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(
         builder: (_) => YogaLevelDetailScreen(
           level: level,
           title: item['title'],
           durationMinutes: item['durationMinutes'],
           goal: item['goal'],
+          guide: item['guide'],
           steps: List<String>.from(item['steps']),
           apiPoseId: item['apiPoseId'] as int?,
           defaultYoutubeId: item['youtubeId'] as String,
@@ -168,48 +209,85 @@ class _WellnessScreenState extends State<WellnessScreen> {
       ),
     );
 
-    if (completed == true) {
-      await completeLevel(level);
+    if (result != null && result['completed'] == true) {
+      await completeLevel(level, checkIn: result);
     }
   }
 
-  Future<void> completeLevel(int level) async {
-    final result = await GamificationService.completeLevel(
-      levelId: level,
-      xpReward: level * 10,
-      isMenstrualPhase: _isMenstrualPhase,
-      badgeId: level == yogaLevels.length ? 'yoga_journey_complete' : null,
-    );
-
-    if (!mounted) return;
-
-    if (result['success'] != true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save progress: ${result['error']}')),
+  Future<void> completeLevel(int level, {Map<String, dynamic>? checkIn}) async {
+    try {
+      final result = await GamificationService.completeLevel(
+        levelId: level,
+        xpReward: level * 10,
+        isMenstrualPhase: _isMenstrualPhase,
+        badgeId: level == yogaLevels.length ? 'yoga_journey_complete' : null,
       );
-      return;
-    }
 
-    setState(() {
-      unlockedLevel = result['yoga_level'] as int;
-      xp = result['xp'] as int;
-      streakCount = result['streak_count'] as int;
-      completedLevels = List<int>.from(result['completed_levels'] as List);
-    });
+      if (!mounted) return;
 
-    final unlockedNext = result['unlocked_next'] == true;
-    final alreadyCompleted = result['already_completed'] == true;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          unlockedNext
-              ? 'Level $level completed! Next level unlocked 🌸  (+${level * 10} XP)'
-              : alreadyCompleted
-                  ? 'Level $level completed again — great consistency!'
-                  : 'Level $level completed! (+${level * 10} XP)',
+      if (result['success'] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save progress: ${result['error']}')),
+        );
+        return;
+      }
+
+      setState(() {
+        unlockedLevel = result['yoga_level'] as int;
+        xp = result['xp'] as int;
+        streakCount = result['streak_count'] as int;
+        completedLevels = List<int>.from(result['completed_levels'] as List);
+      });
+
+      _saveCheckIn(level, checkIn);
+
+      final unlockedNext = result['unlocked_next'] == true;
+      final alreadyCompleted = result['already_completed'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            unlockedNext
+                ? 'Level $level completed! Next level unlocked 🌸  (+${level * 10} XP)'
+                : alreadyCompleted
+                    ? 'Level $level completed again — great consistency!'
+                    : 'Level $level completed! (+${level * 10} XP)',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to save your progress. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  /// Best-effort completion history: comfort/stress before & after, date,
+  /// optional note. Skipped ratings are stored as null. Never blocks the
+  /// XP/level save above — that already succeeded by the time this runs.
+  Future<void> _saveCheckIn(int level, Map<String, dynamic>? checkIn) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final note = checkIn?['note'] as String?;
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('yoga_checkins')
+          .add({
+        'level': level,
+        'comfort_before': checkIn?['comfortBefore'],
+        'stress_before': checkIn?['stressBefore'],
+        'comfort_after': checkIn?['comfortAfter'],
+        'stress_after': checkIn?['stressAfter'],
+        'note': (note == null || note.isEmpty) ? null : note,
+        'completed_at': DateTime.now().toIso8601String(),
+      });
+    } catch (_) {
+      // History is a nice-to-have; the completion itself already saved.
+    }
   }
 
   @override
@@ -232,12 +310,10 @@ class _WellnessScreenState extends State<WellnessScreen> {
               itemBuilder: (context, index) {
                 final item = yogaLevels[index];
                 final int level = item['level'];
-                final bool isRecommended =
-                    item['phase'] == 'Any' || item['phase'] == currentPhase;
-                // Sequentially unlocked, or reachable today via a phase
-                // recommendation — a rough period shouldn't be blocked by
-                // an unfinished strength-training level.
-                final bool isUnlocked = level <= unlockedLevel || isRecommended;
+                final bool isRecommended = item['energyTag'] == _energyLevel;
+                // Recommendation is informational only — it never unlocks a
+                // level early, so the game's sequential progression holds.
+                final bool isUnlocked = level <= unlockedLevel;
                 final bool isCurrent = level == unlockedLevel;
                 final bool isDone = completedLevels.contains(level);
 
@@ -258,19 +334,26 @@ class _WellnessScreenState extends State<WellnessScreen> {
                               : null,
                     ),
                     title: Text(
-                      '${'⭐' * level}  ${item['title']}',
+                      item['title'],
                       style: TextStyle(
                         fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
-                    subtitle: Text(
-                      isRecommended && !isCurrent
-                          ? '${item['durationMinutes']} min • ${item['goal']} • Recommended today'
-                          : '${item['durationMinutes']} min • ${item['goal']}',
-                      style: isRecommended && !isCurrent
-                          ? const TextStyle(
-                              color: Colors.pink, fontWeight: FontWeight.w500)
-                          : null,
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Level $level  ${'⭐' * level}'),
+                        const SizedBox(height: 4),
+                        Text(
+                          isRecommended && !isCurrent
+                              ? '${item['durationMinutes']} min • ${item['category']} • Suggested for ${item['recommendedFor']}'
+                              : '${item['durationMinutes']} min • ${item['category']}',
+                          style: isRecommended && !isCurrent
+                              ? const TextStyle(
+                                  color: Colors.pink, fontWeight: FontWeight.w500)
+                              : null,
+                        ),
+                      ],
                     ),
                     trailing: isUnlocked
                         ? ElevatedButton(
@@ -290,6 +373,10 @@ class _WellnessScreenState extends State<WellnessScreen> {
   }
 
   Widget _buildStatsHeader() {
+    // unlockedLevel goes one past the last real level once it's completed
+    // (so the next card would render as locked) — clamp so the header
+    // never claims a "Level 6" that doesn't exist.
+    final displayedLevel = unlockedLevel.clamp(1, yogaLevels.length);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -300,7 +387,7 @@ class _WellnessScreenState extends State<WellnessScreen> {
           _statItem(Icons.star, '$xp XP', const Color(0xFF3C3489)),
           _statItem(Icons.local_fire_department, '$streakCount day streak',
               Colors.deepOrange),
-          _statItem(Icons.flag, 'Level $unlockedLevel', const Color(0xFF7F77DD)),
+          _statItem(Icons.flag, 'Level $displayedLevel', const Color(0xFF7F77DD)),
         ],
       ),
     );

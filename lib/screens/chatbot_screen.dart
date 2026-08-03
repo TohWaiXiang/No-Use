@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
+import '../services/backend_config.dart';
 import '../widgets/chat_infographics.dart';
-
-const String _backendBaseUrl = 'http://192.168.0.11:8000';
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
@@ -112,7 +111,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     try {
       final response = await http
           .post(
-            Uri.parse('$_backendBaseUrl/chatbot'),
+            Uri.parse('$backendBaseUrl/chatbot'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'user_id': uid,

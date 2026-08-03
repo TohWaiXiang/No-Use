@@ -6,3 +6,4 @@ numpy
 firebase-admin
 joblib
 python-dotenv
+requests

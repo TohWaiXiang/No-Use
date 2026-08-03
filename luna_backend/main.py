@@ -16,8 +16,16 @@ from dotenv import load_dotenv
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-cred = credentials.Certificate(
-    'firebase_config/serviceAccountKey.json')
+# Locally the key file sits in firebase_config/ (gitignored). On a host like
+# Railway there's no such file in the deploy, so the same JSON is provided
+# via an env var instead — set FIREBASE_SERVICE_ACCOUNT_JSON to the file's
+# full contents in the host's dashboard.
+_firebase_json_env = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
+cred = (
+    credentials.Certificate(json.loads(_firebase_json_env))
+    if _firebase_json_env
+    else credentials.Certificate('firebase_config/serviceAccountKey.json')
+)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 

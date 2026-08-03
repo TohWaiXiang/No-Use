@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
+import '../services/backend_config.dart';
 import '../services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -1387,24 +1388,28 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_periodHistory.isEmpty) return;
     setState(() => _loadingPrediction = true);
 
-    try {
-      double totalCycle = 0, totalDuration = 0;
-      for (int i = 0; i < _periodHistory.length; i++) {
-        final s = _parseDate(_periodHistory[i]['start']);
-        final e = _parseDate(_periodHistory[i]['end']);
-        totalDuration += e.difference(s).inDays + 1;
-        if (i > 0) {
-          totalCycle += s
-              .difference(_parseDate(_periodHistory[i - 1]['start']))
-              .inDays;
-        }
-      }
-      final avgDuration = totalDuration / _periodHistory.length;
-      final avgCycle = _periodHistory.length > 1
-          ? totalCycle / (_periodHistory.length - 1)
-          : 28.0;
+    final prefs = await SharedPreferences.getInstance();
+    // Cold-start fallback only: once 2+ periods are logged, the real
+    // history-based average below takes over regardless of this setting.
+    final profileCycleLength = prefs.getDouble('avg_cycle_length') ?? 28.0;
 
-      final prefs = await SharedPreferences.getInstance();
+    double totalCycle = 0, totalDuration = 0;
+    for (int i = 0; i < _periodHistory.length; i++) {
+      final s = _parseDate(_periodHistory[i]['start']);
+      final e = _parseDate(_periodHistory[i]['end']);
+      totalDuration += e.difference(s).inDays + 1;
+      if (i > 0) {
+        totalCycle += s
+            .difference(_parseDate(_periodHistory[i - 1]['start']))
+            .inDays;
+      }
+    }
+    final avgDuration = totalDuration / _periodHistory.length;
+    final avgCycle = _periodHistory.length > 1
+        ? totalCycle / (_periodHistory.length - 1)
+        : profileCycleLength;
+
+    try {
       final age = prefs.getInt('user_age') ?? 25;
       final stress = prefs.getInt('stress_level') ?? 2;
       final sleep = prefs.getDouble('sleep_hours') ?? 7.0;
@@ -1413,7 +1418,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final response = await http
           .post(
-            Uri.parse('http://192.168.0.11:8000/predict'),
+            Uri.parse('$backendBaseUrl/predict'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'user_id': prefs.getString('uid') ?? 'user_001',
@@ -1435,21 +1440,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _useFallback(avgCycle, avgDuration);
       }
     } catch (_) {
-      double totalCycle = 0, totalDuration = 0;
-      for (int i = 0; i < _periodHistory.length; i++) {
-        final s = _parseDate(_periodHistory[i]['start']);
-        final e = _parseDate(_periodHistory[i]['end']);
-        totalDuration += e.difference(s).inDays + 1;
-        if (i > 0) {
-          totalCycle += s
-              .difference(_parseDate(_periodHistory[i - 1]['start']))
-              .inDays;
-        }
-      }
-      final avg = _periodHistory.length > 1
-          ? totalCycle / (_periodHistory.length - 1)
-          : 28.0;
-      _useFallback(avg, totalDuration / _periodHistory.length);
+      _useFallback(avgCycle, avgDuration);
     }
   }
 
@@ -1476,8 +1467,14 @@ class _HomeScreenState extends State<HomeScreen> {
           data['next_period_start']?.toString() ?? _fmt(nextStart);
       final fertileWindow = data['fertile_window']?.toString() ?? '—';
       final ovulationDay = data['ovulation_day']?.toString() ?? '—';
-      final cycleLength =
-          '${(data['predicted_cycle_length'] ?? avgCycle).toStringAsFixed(0)} days';
+      // With fewer than 2 logged periods there's no real history to trust,
+      // and the backend's ML model predicts cycle length purely from
+      // symptom data — it never sees this profile setting. Show the
+      // profile value in that cold-start case instead of the model's
+      // symptom-only guess; once real history exists, trust the model.
+      final cycleLength = _periodHistory.length > 1
+          ? '${(data['predicted_cycle_length'] ?? avgCycle).toStringAsFixed(0)} days'
+          : '${avgCycle.toStringAsFixed(0)} days';
       final currentPhase = data['current_phase']?.toString() ?? '—';
       final phaseDesc =
           data['phase_description']?.toString() ?? 'Prediction updated.';
@@ -2180,91 +2177,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // ── Menstrual Record CRUD card ───────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                child: GestureDetector(
-                  onTap: _showMenstrualRecordsList,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFEEEDFE)),
-                    ),
-                    child: ListTile(
-                      leading: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEEEDFE),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.history_outlined,
-                          color: Color(0xFF7F77DD),
-                          size: 18,
-                        ),
-                      ),
-                      title: const Text(
-                        'Menstrual Records',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      subtitle: Text(
-                        _periodHistory.isEmpty
-                            ? 'No records yet — tap a calendar date to add'
-                            : '${_periodHistory.length} record${_periodHistory.length == 1 ? '' : 's'} · tap to view & edit',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_periodHistory.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEEEDFE),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '${_periodHistory.length}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF7F77DD),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.chevron_right,
-                            color: Colors.grey,
-                            size: 18,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
               // ── Log buttons ──────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                 child: Column(
                   children: [
                     _buildActionCardWithView(
+                      icon: Icons.water_drop_outlined,
+                      iconBg: const Color(0xFFEEEDFE),
+                      title: 'Menstrual Records',
+                      sub: _periodHistory.isEmpty
+                          ? 'Tap a calendar date to add a period'
+                          : '${_periodHistory.length} record${_periodHistory.length == 1 ? '' : 's'} logged',
+                      onView: _periodHistory.isEmpty
+                          ? null
+                          : _showMenstrualRecordsList,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildActionCardWithView(
                       icon: Icons.favorite_outline,
                       iconBg: const Color(0xFFEEEDFE),
-                      title: '+ Log Symptoms',
+                      title: 'Symptoms',
                       sub: _symptomLogs.isEmpty
                           ? 'Track cramps, mood, flow & more'
                           : '${_symptomLogs.length} log${_symptomLogs.length == 1 ? '' : 's'} recorded',
@@ -2277,7 +2210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildActionCardWithView(
                       icon: Icons.medical_services_outlined,
                       iconBg: const Color(0xFFE6F1FB),
-                      title: '+ Medication',
+                      title: 'Medication',
                       sub: _medicationLogs.isEmpty
                           ? 'Add medication with remarks'
                           : '${_medicationLogs.length} medication${_medicationLogs.length == 1 ? '' : 's'} logged',
@@ -3551,7 +3484,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color iconBg,
     required String title,
     required String sub,
-    required VoidCallback onAdd,
+    VoidCallback? onAdd,
     VoidCallback? onView,
   }) => Container(
     decoration: BoxDecoration(
@@ -3579,20 +3512,25 @@ class _HomeScreenState extends State<HomeScreen> {
             sub,
             style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),
-          trailing: ElevatedButton(
-            onPressed: onAdd,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7F77DD),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text('+ Add', style: TextStyle(fontSize: 11)),
-          ),
+          trailing: onAdd == null
+              ? null
+              : ElevatedButton(
+                  onPressed: onAdd,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7F77DD),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('+ Add', style: TextStyle(fontSize: 11)),
+                ),
         ),
         if (onView != null) ...[
           Divider(height: 1, color: Colors.grey.shade100),
