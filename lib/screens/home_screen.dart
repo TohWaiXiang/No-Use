@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 import '../services/backend_config.dart';
@@ -41,6 +42,12 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _hormonalRisk;
   int? _pss10Score;
   int? _psqiGlobalScore;
+
+  // ── AI wellness features ────────────────────────────────────────
+  String? _aiRecommendations;
+  bool _loadingRecommendations = false;
+  String? _weeklySummary;
+  bool _loadingWeeklySummary = false;
 
   static final List<Map<String, dynamic>> _availableSymptoms = [
     {'name': 'Cramps', 'icon': Icons.sick_outlined},
@@ -164,6 +171,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     if (history.isNotEmpty) _fetchPrediction();
+    if (history.isNotEmpty || symLogs.isNotEmpty) {
+      _fetchAiRecommendations();
+      _fetchWeeklySummary();
+    }
   }
 
   // ── Save period history ───────────────────────────────────────────
@@ -1444,6 +1455,52 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _fetchAiRecommendations() async {
+    setState(() => _loadingRecommendations = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('uid') ?? 'user_001';
+      final response = await http
+          .post(
+            Uri.parse('$backendBaseUrl/ai/recommendations'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': uid}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() => _aiRecommendations = data['text'] as String?);
+      }
+    } catch (_) {
+      // Silent — this is a bonus card, not core functionality.
+    } finally {
+      if (mounted) setState(() => _loadingRecommendations = false);
+    }
+  }
+
+  Future<void> _fetchWeeklySummary() async {
+    setState(() => _loadingWeeklySummary = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('uid') ?? 'user_001';
+      final response = await http
+          .post(
+            Uri.parse('$backendBaseUrl/ai/weekly-summary'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': uid}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() => _weeklySummary = data['text'] as String?);
+      }
+    } catch (_) {
+      // Silent — this is a bonus card, not core functionality.
+    } finally {
+      if (mounted) setState(() => _loadingWeeklySummary = false);
+    }
+  }
+
   void _applyPrediction(
     Map<String, dynamic> data,
     double avgCycle,
@@ -2470,14 +2527,125 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                         ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                          child: Text(
+                            _hormonalInterpretationText(),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black87,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
                       ],
                     ],
                   ],
                 ),
               ),
+              _aiTextCard(
+                title: 'AI Health Recommendations',
+                icon: Icons.tips_and_updates_outlined,
+                loading: _loadingRecommendations,
+                text: _aiRecommendations,
+              ),
+              _aiTextCard(
+                title: 'Weekly Health Summary',
+                icon: Icons.calendar_view_week_outlined,
+                loading: _loadingWeeklySummary,
+                text: _weeklySummary,
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Non-AI lookup: PSS-10/PSQI risk buckets already computed by
+  // HormonalScoring.hormonalRisk() at check-in time (see
+  // hormonal_questionnaire_screen.dart) — this just turns the bucket into
+  // a plain-language sentence, no LLM call needed.
+  String _hormonalInterpretationText() {
+    switch (_hormonalRisk) {
+      case 'Low':
+        return 'Your stress and sleep scores are in a healthy range — keep up your current habits.';
+      case 'Moderate':
+        return 'Your stress or sleep scores suggest some strain. Small improvements to your sleep routine or stress management could help.';
+      case 'High':
+        return 'Your stress and sleep scores suggest significant strain. Consider prioritising rest and speaking with a healthcare professional.';
+      default:
+        return '';
+    }
+  }
+
+  Widget _aiTextCard({
+    required String title,
+    required IconData icon,
+    required bool loading,
+    required String? text,
+  }) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEDFE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEEDFE),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: Colors.white, size: 15),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF3C3489),
+                ),
+              ),
+              const Spacer(),
+              if (loading)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFEEEDFE),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          MarkdownBody(
+            data: text ??
+                (loading
+                    ? 'Generating...'
+                    : 'Log your cycle and symptoms to unlock this.'),
+            styleSheet: MarkdownStyleSheet(
+              p: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.5),
+              strong: const TextStyle(
+                fontSize: 13,
+                color: Colors.black87,
+                height: 1.5,
+                fontWeight: FontWeight.bold,
+              ),
+              listBullet: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.5),
+            ),
+          ),
+        ],
       ),
     );
   }

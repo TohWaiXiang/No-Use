@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../services/gamification_service.dart';
+import '../services/backend_config.dart';
 import 'yoga_level_detail_screen.dart';
 
 class WellnessScreen extends StatefulWidget {
@@ -19,6 +23,8 @@ class _WellnessScreenState extends State<WellnessScreen> {
   bool isLoading = true;
   String currentPhase = '—';
   int? stressLevel; // 0-5, from the profile's onboarding check-in.
+  String? wellnessPlan;
+  bool loadingWellnessPlan = false;
 
   // Yoga levels are one pose each, but `durationMinutes` is total session
   // time, not one continuous hold — `guide` spells out the actual
@@ -129,6 +135,44 @@ class _WellnessScreenState extends State<WellnessScreen> {
         'Stay for several minutes, then bend your knees and roll gently to one side to come up.',
       ],
     },
+    {
+      'level': 6,
+      'title': 'Seated Forward Bend',
+      'durationMinutes': 8,
+      'goal': 'Stretch the back and hamstrings while calming the mind',
+      'guide': "Hold 1–2 minutes, release, repeat if you'd like.",
+      'category': 'Gentle movement',
+      'energyTag': 'low',
+      'recommendedFor': 'Low energy or lower back tension',
+      'apiPoseId': 30,
+      'youtubeId': 'Xn1wigQSrmI',
+      'steps': [
+        'Sit with your legs extended straight in front of you.',
+        'Inhale and lengthen your spine tall.',
+        'Exhale and hinge forward from your hips, reaching toward your feet.',
+        'Hold wherever feels comfortable — shins, ankles, or feet — without forcing.',
+        'Breathe steadily, releasing tension in your lower back with each exhale.',
+      ],
+    },
+    {
+      'level': 7,
+      'title': 'Corpse Pose',
+      'durationMinutes': 8,
+      'goal': 'Rest and reset before finishing your practice',
+      'guide': 'Lie still for 5–8 minutes, breathing naturally.',
+      'category': 'Restorative',
+      'energyTag': 'low',
+      'recommendedFor': 'Very low energy or needing deep rest',
+      'apiPoseId': 11,
+      'youtubeId': '7MViudowD60',
+      'steps': [
+        'Lie flat on your back with legs extended and slightly apart, feet falling open.',
+        'Rest your arms alongside your body, palms facing up.',
+        'Close your eyes and let your whole body go heavy against the mat.',
+        'Let your breath settle into a slow, natural rhythm.',
+        'Stay here for several minutes, releasing tension with each exhale.',
+      ],
+    },
   ];
 
   @override
@@ -182,6 +226,8 @@ class _WellnessScreenState extends State<WellnessScreen> {
         currentPhase = predictionDoc.data()?['current_phase']?.toString() ?? '—';
         stressLevel = (userDoc.data()?['stress_level'] as num?)?.toInt();
       });
+
+      _fetchWellnessPlan(uid);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -189,6 +235,27 @@ class _WellnessScreenState extends State<WellnessScreen> {
       );
     } finally {
       if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _fetchWellnessPlan(String uid) async {
+    setState(() => loadingWellnessPlan = true);
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$backendBaseUrl/ai/wellness-plan'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': uid}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() => wellnessPlan = data['text'] as String?);
+      }
+    } catch (_) {
+      // Silent — this is a bonus card, not core functionality.
+    } finally {
+      if (mounted) setState(() => loadingWellnessPlan = false);
     }
   }
 
@@ -247,10 +314,10 @@ class _WellnessScreenState extends State<WellnessScreen> {
         SnackBar(
           content: Text(
             unlockedNext
-                ? 'Level $level completed! Next level unlocked 🌸  (+${level * 10} XP)'
+                ? 'Level $level completed! Next level unlocked 🌸'
                 : alreadyCompleted
                     ? 'Level $level completed again — great consistency!'
-                    : 'Level $level completed! (+${level * 10} XP)',
+                    : 'Level $level completed!',
           ),
         ),
       );
@@ -299,10 +366,11 @@ class _WellnessScreenState extends State<WellnessScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Yoga & Relaxation Journey 🌸')),
+      appBar: AppBar(title: const Text('Wellness')),
       body: Column(
         children: [
           _buildStatsHeader(),
+          _buildWellnessPlanCard(),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(12),
@@ -342,7 +410,7 @@ class _WellnessScreenState extends State<WellnessScreen> {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Level $level  ${'⭐' * level}'),
+                        Text('Level $level'),
                         const SizedBox(height: 4),
                         Text(
                           isRecommended && !isCurrent
@@ -384,11 +452,56 @@ class _WellnessScreenState extends State<WellnessScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _statItem(Icons.star, '$xp XP', const Color(0xFF3C3489)),
           _statItem(Icons.local_fire_department, '$streakCount day streak',
               Colors.deepOrange),
           _statItem(Icons.flag, 'Level $displayedLevel', const Color(0xFF7F77DD)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWellnessPlanCard() {
+    if (wellnessPlan == null && !loadingWellnessPlan) return const SizedBox.shrink();
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.spa_outlined, color: Color(0xFFEEEDFE), size: 18),
+                const SizedBox(width: 8),
+                const Text(
+                  'Your Personalized Wellness Plan',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF3C3489)),
+                ),
+                const Spacer(),
+                if (loadingWellnessPlan)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: SingleChildScrollView(
+                child: MarkdownBody(
+                  data: wellnessPlan ?? 'Generating your plan...',
+                  styleSheet: MarkdownStyleSheet(
+                    p: const TextStyle(fontSize: 13, height: 1.5),
+                    strong: const TextStyle(fontSize: 13, height: 1.5, fontWeight: FontWeight.bold),
+                    listBullet: const TextStyle(fontSize: 13, height: 1.5),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -465,18 +465,23 @@ AI_DISCLAIMER = (
     'personalised medical advice.'
 )
 
+MARKDOWN_INSTRUCTION = (
+    'Format the response as Markdown: **bold** key terms and use a '
+    '"- " bullet list for list items.'
+)
+
 RECOMMENDATIONS_SYSTEM_PROMPT = (
     'You are Luna, a menstrual and wellness health assistant. Using the '
     "user's health data below, write 3-5 short, specific, personalized "
     'lifestyle and wellness recommendations covering sleep, stress, exercise, '
-    f'and nutrition as a bullet list. Be concrete, not generic. {AI_DISCLAIMER}'
+    f'and nutrition as a bullet list. Be concrete, not generic. {MARKDOWN_INSTRUCTION} {AI_DISCLAIMER}'
 )
 
 WEEKLY_SUMMARY_SYSTEM_PROMPT = (
     'You are Luna, a menstrual and wellness health assistant. Using the '
     "user's health data and this-week-vs-last-week trends below, write a "
     'short, easy-to-understand weekly summary (3-5 sentences) highlighting '
-    f'improvements, concerns, and notable changes. {AI_DISCLAIMER}'
+    f'improvements, concerns, and notable changes. {MARKDOWN_INSTRUCTION} {AI_DISCLAIMER}'
 )
 
 WELLNESS_PLAN_SYSTEM_PROMPT = (
@@ -484,7 +489,7 @@ WELLNESS_PLAN_SYSTEM_PROMPT = (
     "user's health data and recent trends below, generate a practical daily "
     'wellness plan (sleep, exercise, relaxation, nutrition) as a short '
     'bullet list tailored to their current cycle phase and stress/sleep '
-    f'levels. {AI_DISCLAIMER}'
+    f'levels. {MARKDOWN_INSTRUCTION} {AI_DISCLAIMER}'
 )
 
 class UserIdRequest(BaseModel):
