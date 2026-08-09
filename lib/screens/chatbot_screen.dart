@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
@@ -320,28 +321,61 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         decoration: BoxDecoration(
           color: isBot ? Colors.white : const Color(0xFF7F77DD),
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(isBot ? 4 : 14),
-            bottomRight: Radius.circular(isBot ? 14 : 4),
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(isBot ? 4 : 18),
+            bottomRight: Radius.circular(isBot ? 18 : 4),
           ),
           border: isBot ? Border.all(color: const Color(0xFFEEEDFE)) : null,
         ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            color: isBot ? const Color(0xFF2C2C2A) : Colors.white,
-            height: 1.5,
-          ),
-        ),
+        child: isBot
+            ? MarkdownBody(
+                data: text,
+                styleSheet: MarkdownStyleSheet(
+                  p: const TextStyle(
+                    fontSize: 15,
+                    color: Color(0xFF333333),
+                    height: 1.5,
+                  ),
+                  strong: const TextStyle(
+                    fontSize: 15,
+                    color: Color(0xFF333333),
+                    height: 1.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  h1: const TextStyle(
+                    fontSize: 17,
+                    color: Color(0xFF333333),
+                    fontWeight: FontWeight.bold,
+                  ),
+                  h2: const TextStyle(
+                    fontSize: 16,
+                    color: Color(0xFF333333),
+                    fontWeight: FontWeight.bold,
+                  ),
+                  listBullet: const TextStyle(
+                    fontSize: 15,
+                    color: Color(0xFF333333),
+                    height: 1.5,
+                  ),
+                  blockSpacing: 10,
+                ),
+              )
+            : Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Colors.white,
+                  height: 1.5,
+                ),
+              ),
       ),
     );
   }

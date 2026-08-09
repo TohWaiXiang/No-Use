@@ -11,12 +11,12 @@ import os
 import re
 import json
 import requests
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-
 # Locally the key file sits in firebase_config/ (gitignored). On a host like
 # Railway there's no such file in the deploy, so the same JSON is provided
 # via an env var instead — base64-encoded, because pasting the raw JSON into
@@ -139,6 +139,9 @@ CHAT_SYSTEM_PROMPT = (
     'inside a period-tracking app. Answer questions about cycles, symptoms, '
     'fertility windows, and wellness clearly and concisely. Always remind '
     'users to consult a healthcare professional for personalised medical advice.\n\n'
+    'Format plain-text answers as Markdown: **bold** key terms, use bullet or '
+    'numbered lists for multi-step or multi-item answers, and short headings only '
+    'for longer, multi-section answers.\n\n'
     'Some answers are clearer as a visual. If the user asks about their current '
     'cycle phase, fertile window/ovulation, or a trend in their mood, flow, or '
     'symptoms, and the user context above gives you enough data to fill it in, '
@@ -329,6 +332,13 @@ def _build_chat_context(user_id: str):
             f"stress level={profile.get('stress_level')}, sleep hours={profile.get('sleep_hours')}, "
             f"exercise days/week={profile.get('exercise_days')}, fitness level={profile.get('fitness_level')}."
         )
+        if profile.get('pss10_score') is not None:
+            parts.append(
+                f"Latest monthly check-in: PSS-10 perceived stress score="
+                f"{profile.get('pss10_score')}/40, PSQI sleep quality score="
+                f"{profile.get('psqi_global_score')}/21, hormonal-imbalance risk="
+                f"{profile.get('hormonal_risk')} (assessed {profile.get('hormonal_assessment_date')})."
+            )
 
     pred_doc = _ff(lambda: db.collection('users').document(user_id)
                    .collection('predictions').document('latest').get())
@@ -364,20 +374,64 @@ def _build_chat_context(user_id: str):
     summary = '\n'.join(parts) if parts else 'No user health data is available yet.'
     return summary, prediction
 
-@app.post('/chatbot')
-def chatbot(req: ChatRequest):
+
+def _trend_stats_from_logs(logs: list[dict], today) -> str:
+    """Pure this-week-vs-last-week symptom/mood breakdown from symptom_logs.
+    Split out from _weekly_trend_summary so it's testable without Firestore.
+    ponytail: cycle_logs.stress_level/sleep_hours are still hardcoded
+    placeholders in home_screen.dart, not real daily values, so a genuine
+    stress/sleep correlation isn't computable yet — only the monthly
+    PSS-10/PSQI check-in (see _build_chat_context) has real numbers. Swap
+    this for a real correlation once daily values are collected.
+    """
+    this_week, last_week = [], []
+    for log in logs:
+        try:
+            d = datetime.strptime(log['date'], '%Y-%m-%d').date()
+        except (KeyError, ValueError, TypeError):
+            continue
+        days_ago = (today - d).days
+        if 0 <= days_ago < 7:
+            this_week.append(log)
+        elif 7 <= days_ago < 14:
+            last_week.append(log)
+
+    def _describe(week):
+        symptom_counts = Counter()
+        moods = Counter()
+        for log in week:
+            symptom_counts.update(log.get('symptoms') or [])
+            if log.get('mood'):
+                moods[log['mood']] += 1
+        top_symptoms = ', '.join(s for s, _ in symptom_counts.most_common(3)) or 'none'
+        top_mood = moods.most_common(1)[0][0] if moods else 'not logged'
+        return (
+            f"{len(week)} days logged, {sum(symptom_counts.values())} total symptom "
+            f"entries (most common: {top_symptoms}). Mood most often: {top_mood}."
+        )
+
+    return f"This week: {_describe(this_week)}\nPrevious week: {_describe(last_week)}"
+
+
+def _weekly_trend_summary(user_id: str) -> str:
+    docs = _ff(lambda: list(
+        db.collection('users').document(user_id)
+        .collection('symptom_logs')
+        .order_by('date', direction=firestore.Query.DESCENDING)
+        .limit(14).stream()
+    ), default=[])
+    logs = [d.to_dict() for d in docs]
+    if not logs:
+        return 'No symptom logs available yet this month.'
+    return _trend_stats_from_logs(logs, datetime.now().date())
+
+
+def _call_openai(messages: list[dict]) -> str:
     if not OPENAI_API_KEY:
         raise HTTPException(
             status_code=500,
             detail='OPENAI_API_KEY is not configured on the server.',
         )
-
-    context_summary, prediction = _build_chat_context(req.user_id)
-
-    messages = [{'role': 'system', 'content': f'{CHAT_SYSTEM_PROMPT}\n\n{context_summary}'}]
-    messages += [{'role': m.role, 'content': m.content} for m in req.history]
-    messages.append({'role': 'user', 'content': req.message})
-
     try:
         response = requests.post(
             'https://api.openai.com/v1/chat/completions',
@@ -400,14 +454,75 @@ def chatbot(req: ChatRequest):
         raise HTTPException(status_code=response.status_code, detail=detail)
 
     raw = response.json()['choices'][0]['message']['content'].strip()
-    cleaned = raw
-    if cleaned.startswith('```'):
-        cleaned = re.sub(r'^```[a-zA-Z]*\n?', '', cleaned)
-        cleaned = re.sub(r'```\s*$', '', cleaned).strip()
+    if raw.startswith('```'):
+        raw = re.sub(r'^```[a-zA-Z]*\n?', '', raw)
+        raw = re.sub(r'```\s*$', '', raw).strip()
+    return raw
+
+
+AI_DISCLAIMER = (
+    'Always remind users to consult a healthcare professional for '
+    'personalised medical advice.'
+)
+
+RECOMMENDATIONS_SYSTEM_PROMPT = (
+    'You are Luna, a menstrual and wellness health assistant. Using the '
+    "user's health data below, write 3-5 short, specific, personalized "
+    'lifestyle and wellness recommendations covering sleep, stress, exercise, '
+    f'and nutrition as a bullet list. Be concrete, not generic. {AI_DISCLAIMER}'
+)
+
+WEEKLY_SUMMARY_SYSTEM_PROMPT = (
+    'You are Luna, a menstrual and wellness health assistant. Using the '
+    "user's health data and this-week-vs-last-week trends below, write a "
+    'short, easy-to-understand weekly summary (3-5 sentences) highlighting '
+    f'improvements, concerns, and notable changes. {AI_DISCLAIMER}'
+)
+
+WELLNESS_PLAN_SYSTEM_PROMPT = (
+    'You are Luna, a menstrual and wellness health assistant. Using the '
+    "user's health data and recent trends below, generate a practical daily "
+    'wellness plan (sleep, exercise, relaxation, nutrition) as a short '
+    'bullet list tailored to their current cycle phase and stress/sleep '
+    f'levels. {AI_DISCLAIMER}'
+)
+
+class UserIdRequest(BaseModel):
+    user_id: str
+
+@app.post('/ai/recommendations')
+def ai_recommendations(req: UserIdRequest):
+    context_summary, _ = _build_chat_context(req.user_id)
+    messages = [{'role': 'system', 'content': f'{RECOMMENDATIONS_SYSTEM_PROMPT}\n\n{context_summary}'}]
+    return {'text': _call_openai(messages)}
+
+@app.post('/ai/weekly-summary')
+def ai_weekly_summary(req: UserIdRequest):
+    context_summary, _ = _build_chat_context(req.user_id)
+    trend_summary = _weekly_trend_summary(req.user_id)
+    messages = [{'role': 'system', 'content': f'{WEEKLY_SUMMARY_SYSTEM_PROMPT}\n\n{context_summary}\n\n{trend_summary}'}]
+    return {'text': _call_openai(messages)}
+
+@app.post('/ai/wellness-plan')
+def ai_wellness_plan(req: UserIdRequest):
+    context_summary, _ = _build_chat_context(req.user_id)
+    trend_summary = _weekly_trend_summary(req.user_id)
+    messages = [{'role': 'system', 'content': f'{WELLNESS_PLAN_SYSTEM_PROMPT}\n\n{context_summary}\n\n{trend_summary}'}]
+    return {'text': _call_openai(messages)}
+
+@app.post('/chatbot')
+def chatbot(req: ChatRequest):
+    context_summary, prediction = _build_chat_context(req.user_id)
+
+    messages = [{'role': 'system', 'content': f'{CHAT_SYSTEM_PROMPT}\n\n{context_summary}'}]
+    messages += [{'role': m.role, 'content': m.content} for m in req.history]
+    messages.append({'role': 'user', 'content': req.message})
+
+    raw = _call_openai(messages)
 
     reply: dict
     try:
-        parsed = json.loads(cleaned)
+        parsed = json.loads(raw)
         if (
             isinstance(parsed, dict)
             and parsed.get('type') == 'infographic'
