@@ -144,30 +144,65 @@ class _HomeScreenState extends State<HomeScreen> {
     // Load period history
     final raw = prefs.getString('period_history_v2') ?? '[]';
     final List decoded = jsonDecode(raw);
-    final history = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+    var history = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
 
     // Load symptom logs
     final symRaw = prefs.getString('symptom_logs') ?? '[]';
     final List symDecoded = jsonDecode(symRaw);
-    final symLogs = symDecoded
+    var symLogs = symDecoded
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
 
     // Load medication logs
     final medRaw = prefs.getString('medication_logs') ?? '[]';
     final List medDecoded = jsonDecode(medRaw);
-    final medLogs = medDecoded
+    var medLogs = medDecoded
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
+
+    // Firestore is the source of truth: local prefs are just a device cache,
+    // so on a new device / reinstall / account switch they're empty even
+    // though the data is safely saved. Pull from Firestore and re-cache.
+    final uid = AuthService.userId;
+    if (uid.isNotEmpty) {
+      try {
+        final userDoc = FirebaseFirestore.instance.collection('users').doc(uid);
+
+        final periodSnap = await userDoc.collection('period_history').get();
+        if (periodSnap.docs.isNotEmpty) {
+          history = periodSnap.docs.map((d) => d.data()).toList();
+          await prefs.setString('period_history_v2', jsonEncode(history));
+        }
+
+        final symSnap = await userDoc.collection('symptom_logs').get();
+        if (symSnap.docs.isNotEmpty) {
+          symLogs = symSnap.docs.map((d) => d.data()).toList();
+          await prefs.setString('symptom_logs', jsonEncode(symLogs));
+        }
+
+        final medSnap = await userDoc.collection('medication_logs').get();
+        if (medSnap.docs.isNotEmpty) {
+          medLogs = medSnap.docs.map((d) => d.data()).toList();
+          await prefs.setString('medication_logs', jsonEncode(medLogs));
+        }
+      } catch (e) {
+        debugPrint('Firestore _loadData fallback error: $e');
+      }
+    }
+
+    // hormonal_risk/pss10_score/psqi_global_score are saved to Firestore via
+    // AuthService.updateProfile() but never cached locally, so they must be
+    // read back from the profile doc rather than SharedPreferences.
+    final profile = uid.isNotEmpty ? await AuthService.getUserProfile() : null;
 
     setState(() {
       _username = name;
       _periodHistory = history;
       _symptomLogs = symLogs;
       _medicationLogs = medLogs;
-      _hormonalRisk = prefs.getString('hormonal_risk');
-      _pss10Score = prefs.getInt('pss10_score');
-      _psqiGlobalScore = prefs.getInt('psqi_global_score');
+      _hormonalRisk = profile?['hormonal_risk'] ?? prefs.getString('hormonal_risk');
+      _pss10Score = profile?['pss10_score'] ?? prefs.getInt('pss10_score');
+      _psqiGlobalScore = profile?['psqi_global_score'] ?? prefs.getInt('psqi_global_score');
     });
 
     if (history.isNotEmpty) _fetchPrediction();

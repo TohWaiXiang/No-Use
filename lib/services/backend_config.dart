@@ -3,5 +3,5 @@
 // ever changes instead of editing source and rebuilding.
 const String backendBaseUrl = String.fromEnvironment(
   'BACKEND_URL',
-  defaultValue: 'https://no-use-1.onrender.com',
+  defaultValue: 'https://no-use-mdr0.onrender.com',
 );
