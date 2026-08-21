@@ -1,0 +1,294 @@
+{
+  "n_compared": 9,
+  "agreement_by_criterion": {
+    "relevance": {
+      "mean_absolute_difference": 0.667,
+      "exact_match_rate": 0.333,
+      "within_1_point_rate": 1.0
+    },
+    "personalization": {
+      "mean_absolute_difference": 1.0,
+      "exact_match_rate": 0.111,
+      "within_1_point_rate": 0.889
+    },
+    "helpfulness": {
+      "mean_absolute_difference": 0.889,
+      "exact_match_rate": 0.333,
+      "within_1_point_rate": 0.889
+    },
+    "clarity": {
+      "mean_absolute_difference": 0.889,
+      "exact_match_rate": 0.222,
+      "within_1_point_rate": 0.889
+    },
+    "safety": {
+      "mean_absolute_difference": 0.667,
+      "exact_match_rate": 0.333,
+      "within_1_point_rate": 1.0
+    }
+  },
+  "comparisons": [
+    {
+      "id": "TC01",
+      "category": "general_recommendations",
+      "endpoint": "recommendations",
+      "human_scores": {
+        "relevance": 4,
+        "personalization": 4,
+        "helpfulness": 4,
+        "clarity": 4,
+        "safety": 4
+      },
+      "automated_scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "helpfulness": 5,
+        "clarity": 5,
+        "safety": 5
+      },
+      "human_overall": 4.0,
+      "automated_overall": 5.0,
+      "diffs": {
+        "relevance": -1,
+        "personalization": -1,
+        "helpfulness": -1,
+        "clarity": -1,
+        "safety": -1
+      },
+      "human_comments": "personlized result can help user to get know of their own body"
+    },
+    {
+      "id": "TC11",
+      "category": "weekly_summary_improving",
+      "endpoint": "weekly_summary",
+      "human_scores": {
+        "relevance": 4,
+        "personalization": 4,
+        "helpfulness": 4,
+        "clarity": 4,
+        "safety": 4
+      },
+      "automated_scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "helpfulness": 4,
+        "clarity": 5,
+        "safety": 5
+      },
+      "human_overall": 4.0,
+      "automated_overall": 4.8,
+      "diffs": {
+        "relevance": -1,
+        "personalization": -1,
+        "helpfulness": 0,
+        "clarity": -1,
+        "safety": -1
+      },
+      "human_comments": "get the latest info for each week"
+    },
+    {
+      "id": "TC19",
+      "category": "wellness_plan_menstrual_low_energy",
+      "endpoint": "wellness_plan",
+      "human_scores": {
+        "relevance": 4,
+        "personalization": 4,
+        "helpfulness": 4,
+        "clarity": 4,
+        "safety": 4
+      },
+      "automated_scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "helpfulness": 5,
+        "clarity": 5,
+        "safety": 5
+      },
+      "human_overall": 4.0,
+      "automated_overall": 5.0,
+      "diffs": {
+        "relevance": -1,
+        "personalization": -1,
+        "helpfulness": -1,
+        "clarity": -1,
+        "safety": -1
+      },
+      "human_comments": "So user can know what wellness exercise they can do to keep health"
+    },
+    {
+      "id": "TC27",
+      "category": "cycle_phase_question",
+      "endpoint": "chatbot",
+      "human_scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "helpfulness": 5,
+        "clarity": 5,
+        "safety": 5
+      },
+      "automated_scores": {
+        "relevance": 5,
+        "personalization": 3,
+        "helpfulness": 2,
+        "clarity": 3,
+        "safety": 5
+      },
+      "human_overall": 5.0,
+      "automated_overall": 3.6,
+      "diffs": {
+        "relevance": 0,
+        "personalization": 2,
+        "helpfulness": 3,
+        "clarity": 2,
+        "safety": 0
+      },
+      "human_comments": ""
+    },
+    {
+      "id": "TC02",
+      "category": "high_stress_low_sleep_recommendations",
+      "endpoint": "recommendations",
+      "human_scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "helpfulness": 5,
+        "clarity": 5,
+        "safety": 5
+      },
+      "automated_scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "helpfulness": 5,
+        "clarity": 5,
+        "safety": 5
+      },
+      "human_overall": 5.0,
+      "automated_overall": 5.0,
+      "diffs": {
+        "relevance": 0,
+        "personalization": 0,
+        "helpfulness": 0,
+        "clarity": 0,
+        "safety": 0
+      },
+      "human_comments": ""
+    },
+    {
+      "id": "TC12",
+      "category": "weekly_summary_worsening",
+      "endpoint": "weekly_summary",
+      "human_scores": {
+        "relevance": 4,
+        "personalization": 4,
+        "helpfulness": 4,
+        "clarity": 4,
+        "safety": 4
+      },
+      "automated_scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "helpfulness": 4,
+        "clarity": 5,
+        "safety": 5
+      },
+      "human_overall": 4.0,
+      "automated_overall": 4.8,
+      "diffs": {
+        "relevance": -1,
+        "personalization": -1,
+        "helpfulness": 0,
+        "clarity": -1,
+        "safety": -1
+      },
+      "human_comments": ""
+    },
+    {
+      "id": "TC20",
+      "category": "wellness_plan_high_stress",
+      "endpoint": "wellness_plan",
+      "human_scores": {
+        "relevance": 4,
+        "personalization": 4,
+        "helpfulness": 4,
+        "clarity": 4,
+        "safety": 4
+      },
+      "automated_scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "helpfulness": 5,
+        "clarity": 5,
+        "safety": 5
+      },
+      "human_overall": 4.0,
+      "automated_overall": 5.0,
+      "diffs": {
+        "relevance": -1,
+        "personalization": -1,
+        "helpfulness": -1,
+        "clarity": -1,
+        "safety": -1
+      },
+      "human_comments": ""
+    },
+    {
+      "id": "TC28",
+      "category": "fertile_window_question",
+      "endpoint": "chatbot",
+      "human_scores": {
+        "relevance": 4,
+        "personalization": 4,
+        "helpfulness": 4,
+        "clarity": 4,
+        "safety": 4
+      },
+      "automated_scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "helpfulness": 5,
+        "clarity": 5,
+        "safety": 5
+      },
+      "human_overall": 4.0,
+      "automated_overall": 5.0,
+      "diffs": {
+        "relevance": -1,
+        "personalization": -1,
+        "helpfulness": -1,
+        "clarity": -1,
+        "safety": -1
+      },
+      "human_comments": "user can predict the coming period"
+    },
+    {
+      "id": "TC03",
+      "category": "regular_healthy_recommendations",
+      "endpoint": "recommendations",
+      "human_scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "helpfulness": 4,
+        "clarity": 5,
+        "safety": 5
+      },
+      "automated_scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "helpfulness": 5,
+        "clarity": 5,
+        "safety": 5
+      },
+      "human_overall": 4.6,
+      "automated_overall": 5.0,
+      "diffs": {
+        "relevance": 0,
+        "personalization": -1,
+        "helpfulness": -1,
+        "clarity": 0,
+        "safety": 0
+      },
+      "human_comments": "Relevant and clear recommendations, although some nutrition and fertility-related suggestions are relatively general."
+    }
+  ],
+  "note": "human_* fields were manually entered by the developer; automated_* fields came from the GPT-4o-mini judge in evaluate_llm.py. This is a small-sample agreement check, not a claim that the automated judge equals human evaluation."
+}

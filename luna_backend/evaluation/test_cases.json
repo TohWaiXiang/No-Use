@@ -1,0 +1,536 @@
+[
+  {
+    "id": "TC01",
+    "category": "general_recommendations",
+    "target_endpoint": "recommendations",
+    "profile": {"username": "Ain", "age": 22, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 7.5, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 9, "days_until_period": 19, "next_period": "2026-08-29", "fertile_window": "18 Aug – 24 Aug 2026", "ovulation_day": "23 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["fatigue"], "mood": "Okay", "flow": "None", "notes": ""},
+      {"date": "2026-08-07", "symptoms": [], "mood": "Good", "flow": "None", "notes": ""},
+      {"date": "2026-08-03", "symptoms": ["bloating"], "mood": "Okay", "flow": "None", "notes": ""},
+      {"date": "2026-07-30", "symptoms": ["cramps", "fatigue"], "mood": "Tired", "flow": "Light", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC02",
+    "category": "high_stress_low_sleep_recommendations",
+    "target_endpoint": "recommendations",
+    "profile": {"username": "Priya", "age": 29, "avg_cycle_length": 30, "avg_period_duration": 6, "stress_level": 5, "sleep_hours": 4.5, "exercise_days": 0, "fitness_level": "low", "pss10_score": 32, "psqi_global_score": 15, "hormonal_risk": "moderate", "hormonal_assessment_date": "2026-08-01"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 24, "days_until_period": 6, "next_period": "2026-08-16", "fertile_window": "already passed this cycle", "ovulation_day": "01 Aug 2026", "cycle_length": 30},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["moodswing", "headache", "fatigue"], "mood": "Anxious", "flow": "None", "notes": "couldn't sleep"},
+      {"date": "2026-08-08", "symptoms": ["headache", "fatigue"], "mood": "Stressed", "flow": "None", "notes": ""},
+      {"date": "2026-08-06", "symptoms": ["moodswing"], "mood": "Irritable", "flow": "None", "notes": ""},
+      {"date": "2026-08-02", "symptoms": ["fatigue"], "mood": "Tired", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC03",
+    "category": "regular_healthy_recommendations",
+    "target_endpoint": "recommendations",
+    "profile": {"username": "Wei", "age": 26, "avg_cycle_length": 27, "avg_period_duration": 4, "stress_level": 1, "sleep_hours": 8, "exercise_days": 5, "fitness_level": "high"},
+    "prediction": {"current_phase": "Fertility", "phase_description": "Peak fertility window. Energy is at its highest.", "cycle_day": 13, "days_until_period": 14, "next_period": "2026-08-24", "fertile_window": "08 Aug – 14 Aug 2026", "ovulation_day": "13 Aug 2026", "cycle_length": 27},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": [], "mood": "Great", "flow": "None", "notes": ""},
+      {"date": "2026-08-05", "symptoms": ["cramps"], "mood": "Good", "flow": "None", "notes": "mild ovulation twinge"}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC04",
+    "category": "menstrual_phase_recommendations",
+    "target_endpoint": "recommendations",
+    "profile": {"username": "Fatimah", "age": 34, "avg_cycle_length": 29, "avg_period_duration": 5, "stress_level": 3, "sleep_hours": 6.5, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Menstrual", "phase_description": "Your period is active. Rest and stay hydrated.", "cycle_day": 2, "days_until_period": 27, "next_period": "2026-09-06", "fertile_window": "18 Aug – 24 Aug 2026", "ovulation_day": "23 Aug 2026", "cycle_length": 29},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["cramps", "fatigue", "bloating"], "mood": "Tired", "flow": "Heavy", "notes": ""},
+      {"date": "2026-08-08", "symptoms": ["cramps", "headache"], "mood": "Irritable", "flow": "Heavy", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC05",
+    "category": "teen_recommendations",
+    "target_endpoint": "recommendations",
+    "profile": {"username": "Aisyah", "age": 16, "avg_cycle_length": 32, "avg_period_duration": 6, "stress_level": 3, "sleep_hours": 7, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 6, "days_until_period": 26, "next_period": "2026-09-05", "fertile_window": "20 Aug – 26 Aug 2026", "ovulation_day": "25 Aug 2026", "cycle_length": 32},
+    "symptom_logs": [
+      {"date": "2026-08-08", "symptoms": ["acne"], "mood": "Okay", "flow": "None", "notes": ""},
+      {"date": "2026-08-04", "symptoms": ["cramps"], "mood": "Okay", "flow": "Spotting", "notes": "cycle still irregular, only 8 months since first period"}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC06",
+    "category": "perimenopause_recommendations",
+    "target_endpoint": "recommendations",
+    "profile": {"username": "Grace", "age": 45, "avg_cycle_length": 24, "avg_period_duration": 3, "stress_level": 3, "sleep_hours": 5.5, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 19, "days_until_period": 5, "next_period": "2026-08-15", "fertile_window": "already passed this cycle", "ovulation_day": "28 Jul 2026", "cycle_length": 24},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["hot flashes", "sleepissue"], "mood": "Irritable", "flow": "None", "notes": "cycles getting shorter and less predictable lately"},
+      {"date": "2026-08-05", "symptoms": ["sleepissue"], "mood": "Tired", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC07",
+    "category": "irregular_cycle_recommendations",
+    "target_endpoint": "recommendations",
+    "profile": {"username": "Hana", "age": 24, "avg_cycle_length": 40, "avg_period_duration": 7, "stress_level": 4, "sleep_hours": 6, "exercise_days": 1, "fitness_level": "low", "hormonal_risk": "high", "hormonal_assessment_date": "2026-07-28"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 15, "days_until_period": 25, "next_period": "2026-09-04", "fertile_window": "24 Aug – 30 Aug 2026", "ovulation_day": "29 Aug 2026", "cycle_length": 40},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["acne", "foodcravings"], "mood": "Okay", "flow": "None", "notes": "cycles have been running long and unpredictable for months"},
+      {"date": "2026-08-01", "symptoms": ["bloating"], "mood": "Okay", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC08",
+    "category": "heavy_symptom_burden_recommendations",
+    "target_endpoint": "recommendations",
+    "profile": {"username": "Nur", "age": 31, "avg_cycle_length": 26, "avg_period_duration": 6, "stress_level": 4, "sleep_hours": 5, "exercise_days": 1, "fitness_level": "low"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 22, "days_until_period": 4, "next_period": "2026-08-14", "fertile_window": "already passed this cycle", "ovulation_day": "31 Jul 2026", "cycle_length": 26},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["cramps", "sorebreasts", "bloating", "moodswing", "headache"], "mood": "Miserable", "flow": "None", "notes": "PMS is really bad this month"},
+      {"date": "2026-08-07", "symptoms": ["cramps", "sorebreasts", "bloating"], "mood": "Irritable", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC09",
+    "category": "postpartum_context_recommendations",
+    "target_endpoint": "recommendations",
+    "profile": {"username": "Mei", "age": 33, "avg_cycle_length": 35, "avg_period_duration": 4, "stress_level": 4, "sleep_hours": 5, "exercise_days": 1, "fitness_level": "low"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 4, "days_until_period": 31, "next_period": "2026-09-10", "fertile_window": "22 Aug – 28 Aug 2026", "ovulation_day": "27 Aug 2026", "cycle_length": 35},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["fatigue"], "mood": "Tired", "flow": "None", "notes": "4 months postpartum, first period back was heavier than before"},
+      {"date": "2026-08-06", "symptoms": ["fatigue"], "mood": "Okay", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC10",
+    "category": "athlete_recommendations",
+    "target_endpoint": "recommendations",
+    "profile": {"username": "Siti", "age": 20, "avg_cycle_length": 29, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 8.5, "exercise_days": 6, "fitness_level": "athletic"},
+    "prediction": {"current_phase": "Fertility", "phase_description": "Peak fertility window. Energy is at its highest.", "cycle_day": 14, "days_until_period": 15, "next_period": "2026-08-25", "fertile_window": "09 Aug – 15 Aug 2026", "ovulation_day": "14 Aug 2026", "cycle_length": 29},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": [], "mood": "Great", "flow": "None", "notes": "training for a half-marathon"},
+      {"date": "2026-08-05", "symptoms": ["fatigue"], "mood": "Good", "flow": "None", "notes": "heavy training week"}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC11",
+    "category": "weekly_summary_improving",
+    "target_endpoint": "weekly_summary",
+    "profile": {"username": "Elena", "age": 27, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 7, "exercise_days": 4, "fitness_level": "moderate"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 8, "days_until_period": 20, "next_period": "2026-08-30", "fertile_window": "17 Aug – 23 Aug 2026", "ovulation_day": "22 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": [], "mood": "Good", "flow": "None", "notes": ""},
+      {"date": "2026-08-08", "symptoms": [], "mood": "Great", "flow": "None", "notes": ""},
+      {"date": "2026-08-06", "symptoms": ["fatigue"], "mood": "Okay", "flow": "None", "notes": ""},
+      {"date": "2026-08-02", "symptoms": ["cramps", "fatigue", "headache"], "mood": "Tired", "flow": "Heavy", "notes": ""},
+      {"date": "2026-07-31", "symptoms": ["cramps", "moodswing"], "mood": "Irritable", "flow": "Heavy", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC12",
+    "category": "weekly_summary_worsening",
+    "target_endpoint": "weekly_summary",
+    "profile": {"username": "Divya", "age": 30, "avg_cycle_length": 27, "avg_period_duration": 5, "stress_level": 4, "sleep_hours": 5.5, "exercise_days": 1, "fitness_level": "low"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 21, "days_until_period": 6, "next_period": "2026-08-16", "fertile_window": "already passed this cycle", "ovulation_day": "30 Jul 2026", "cycle_length": 27},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["headache", "moodswing", "bloating"], "mood": "Irritable", "flow": "None", "notes": ""},
+      {"date": "2026-08-08", "symptoms": ["headache", "fatigue"], "mood": "Stressed", "flow": "None", "notes": ""},
+      {"date": "2026-08-05", "symptoms": ["moodswing"], "mood": "Irritable", "flow": "None", "notes": ""},
+      {"date": "2026-08-02", "symptoms": [], "mood": "Okay", "flow": "None", "notes": ""},
+      {"date": "2026-07-30", "symptoms": [], "mood": "Good", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC13",
+    "category": "weekly_summary_stable",
+    "target_endpoint": "weekly_summary",
+    "profile": {"username": "Rachel", "age": 25, "avg_cycle_length": 30, "avg_period_duration": 4, "stress_level": 2, "sleep_hours": 7.5, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Fertility", "phase_description": "Peak fertility window. Energy is at its highest.", "cycle_day": 15, "days_until_period": 15, "next_period": "2026-08-25", "fertile_window": "10 Aug – 16 Aug 2026", "ovulation_day": "15 Aug 2026", "cycle_length": 30},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["cramps"], "mood": "Good", "flow": "None", "notes": "ovulation twinge"},
+      {"date": "2026-08-07", "symptoms": [], "mood": "Good", "flow": "None", "notes": ""},
+      {"date": "2026-08-03", "symptoms": [], "mood": "Okay", "flow": "None", "notes": ""},
+      {"date": "2026-07-31", "symptoms": ["fatigue"], "mood": "Okay", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC14",
+    "category": "weekly_summary_first_month_no_history",
+    "target_endpoint": "weekly_summary",
+    "profile": {"username": "Ling", "age": 19, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 3, "sleep_hours": 6.5, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Menstrual", "phase_description": "Your period is active. Rest and stay hydrated.", "cycle_day": 1, "days_until_period": 28, "next_period": "2026-09-07", "fertile_window": "16 Aug – 22 Aug 2026", "ovulation_day": "21 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [
+      {"date": "2026-08-10", "symptoms": ["cramps"], "mood": "Okay", "flow": "Medium", "notes": "just started using the app this week"}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC15",
+    "category": "weekly_summary_high_stress_low_sleep",
+    "target_endpoint": "weekly_summary",
+    "profile": {"username": "Zara", "age": 28, "avg_cycle_length": 29, "avg_period_duration": 5, "stress_level": 5, "sleep_hours": 4.5, "exercise_days": 0, "fitness_level": "low", "pss10_score": 34, "psqi_global_score": 16, "hormonal_risk": "moderate", "hormonal_assessment_date": "2026-08-05"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 25, "days_until_period": 4, "next_period": "2026-08-14", "fertile_window": "already passed this cycle", "ovulation_day": "03 Aug 2026", "cycle_length": 29},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["sleepissue", "moodswing", "headache"], "mood": "Anxious", "flow": "None", "notes": "work deadline stress"},
+      {"date": "2026-08-08", "symptoms": ["sleepissue", "fatigue"], "mood": "Stressed", "flow": "None", "notes": ""},
+      {"date": "2026-08-06", "symptoms": ["headache"], "mood": "Stressed", "flow": "None", "notes": ""},
+      {"date": "2026-08-03", "symptoms": ["sleepissue"], "mood": "Tired", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC16",
+    "category": "weekly_summary_exercise_recovery",
+    "target_endpoint": "weekly_summary",
+    "profile": {"username": "Julia", "age": 23, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 8, "exercise_days": 5, "fitness_level": "high"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 7, "days_until_period": 21, "next_period": "2026-08-31", "fertile_window": "16 Aug – 22 Aug 2026", "ovulation_day": "21 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": [], "mood": "Great", "flow": "None", "notes": ""},
+      {"date": "2026-08-06", "symptoms": ["fatigue"], "mood": "Good", "flow": "None", "notes": "back to gym after period"},
+      {"date": "2026-08-02", "symptoms": ["cramps", "fatigue"], "mood": "Tired", "flow": "Medium", "notes": ""},
+      {"date": "2026-07-29", "symptoms": [], "mood": "Okay", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC17",
+    "category": "weekly_summary_perimenopause",
+    "target_endpoint": "weekly_summary",
+    "profile": {"username": "Susan", "age": 46, "avg_cycle_length": 22, "avg_period_duration": 3, "stress_level": 3, "sleep_hours": 5, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 18, "days_until_period": 4, "next_period": "2026-08-14", "fertile_window": "already passed this cycle", "ovulation_day": "27 Jul 2026", "cycle_length": 22},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["hot flashes", "sleepissue"], "mood": "Irritable", "flow": "None", "notes": ""},
+      {"date": "2026-08-06", "symptoms": ["hot flashes"], "mood": "Okay", "flow": "None", "notes": ""},
+      {"date": "2026-08-02", "symptoms": ["sleepissue"], "mood": "Tired", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC18",
+    "category": "weekly_summary_teen",
+    "target_endpoint": "weekly_summary",
+    "profile": {"username": "Amelia", "age": 17, "avg_cycle_length": 31, "avg_period_duration": 6, "stress_level": 3, "sleep_hours": 7, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 5, "days_until_period": 26, "next_period": "2026-09-05", "fertile_window": "19 Aug – 25 Aug 2026", "ovulation_day": "24 Aug 2026", "cycle_length": 31},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["acne"], "mood": "Okay", "flow": "None", "notes": ""},
+      {"date": "2026-08-05", "symptoms": ["cramps", "fatigue"], "mood": "Tired", "flow": "Medium", "notes": ""},
+      {"date": "2026-08-01", "symptoms": ["moodswing"], "mood": "Irritable", "flow": "None", "notes": "exam week"}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC19",
+    "category": "wellness_plan_menstrual_low_energy",
+    "target_endpoint": "wellness_plan",
+    "profile": {"username": "Chloe", "age": 27, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 3, "sleep_hours": 6, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Menstrual", "phase_description": "Your period is active. Rest and stay hydrated.", "cycle_day": 2, "days_until_period": 27, "next_period": "2026-09-06", "fertile_window": "18 Aug – 24 Aug 2026", "ovulation_day": "23 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["cramps", "fatigue"], "mood": "Tired", "flow": "Heavy", "notes": ""},
+      {"date": "2026-08-08", "symptoms": ["cramps"], "mood": "Okay", "flow": "Heavy", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC20",
+    "category": "wellness_plan_high_stress",
+    "target_endpoint": "wellness_plan",
+    "profile": {"username": "Farah", "age": 32, "avg_cycle_length": 29, "avg_period_duration": 5, "stress_level": 5, "sleep_hours": 5, "exercise_days": 1, "fitness_level": "low", "pss10_score": 30, "psqi_global_score": 14, "hormonal_risk": "moderate", "hormonal_assessment_date": "2026-08-02"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 20, "days_until_period": 9, "next_period": "2026-08-19", "fertile_window": "already passed this cycle", "ovulation_day": "05 Aug 2026", "cycle_length": 29},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["moodswing", "headache"], "mood": "Anxious", "flow": "None", "notes": ""},
+      {"date": "2026-08-07", "symptoms": ["headache"], "mood": "Stressed", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC21",
+    "category": "wellness_plan_fertility_window",
+    "target_endpoint": "wellness_plan",
+    "profile": {"username": "Ines", "age": 29, "avg_cycle_length": 28, "avg_period_duration": 4, "stress_level": 2, "sleep_hours": 7.5, "exercise_days": 4, "fitness_level": "moderate"},
+    "prediction": {"current_phase": "Fertility", "phase_description": "Peak fertility window. Energy is at its highest.", "cycle_day": 13, "days_until_period": 15, "next_period": "2026-08-25", "fertile_window": "08 Aug – 14 Aug 2026", "ovulation_day": "13 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": [], "mood": "Great", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC22",
+    "category": "wellness_plan_low_sleep_shift_worker",
+    "target_endpoint": "wellness_plan",
+    "profile": {"username": "Beatriz", "age": 36, "avg_cycle_length": 27, "avg_period_duration": 5, "stress_level": 4, "sleep_hours": 5, "exercise_days": 1, "fitness_level": "low", "hormonal_risk": "low", "hormonal_assessment_date": "2026-07-25"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 6, "days_until_period": 21, "next_period": "2026-08-31", "fertile_window": "15 Aug – 21 Aug 2026", "ovulation_day": "20 Aug 2026", "cycle_length": 27},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["fatigue", "sleepissue"], "mood": "Tired", "flow": "None", "notes": "rotating night shifts"}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC23",
+    "category": "wellness_plan_athlete_luteal",
+    "target_endpoint": "wellness_plan",
+    "profile": {"username": "Sara", "age": 24, "avg_cycle_length": 29, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 8, "exercise_days": 6, "fitness_level": "athletic"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 22, "days_until_period": 7, "next_period": "2026-08-17", "fertile_window": "already passed this cycle", "ovulation_day": "02 Aug 2026", "cycle_length": 29},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["fatigue"], "mood": "Okay", "flow": "None", "notes": "training block, feeling more tired than usual"}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC24",
+    "category": "wellness_plan_pms_heavy",
+    "target_endpoint": "wellness_plan",
+    "profile": {"username": "Camille", "age": 33, "avg_cycle_length": 26, "avg_period_duration": 6, "stress_level": 4, "sleep_hours": 5.5, "exercise_days": 1, "fitness_level": "low"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 23, "days_until_period": 3, "next_period": "2026-08-13", "fertile_window": "already passed this cycle", "ovulation_day": "31 Jul 2026", "cycle_length": 26},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["cramps", "sorebreasts", "bloating", "moodswing"], "mood": "Miserable", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC25",
+    "category": "wellness_plan_teen_first_cycles",
+    "target_endpoint": "wellness_plan",
+    "profile": {"username": "Nadia", "age": 15, "avg_cycle_length": 34, "avg_period_duration": 7, "stress_level": 3, "sleep_hours": 8, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Menstrual", "phase_description": "Your period is active. Rest and stay hydrated.", "cycle_day": 3, "days_until_period": 31, "next_period": "2026-09-10", "fertile_window": "22 Aug – 28 Aug 2026", "ovulation_day": "27 Aug 2026", "cycle_length": 34},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["cramps", "fatigue"], "mood": "Tired", "flow": "Heavy", "notes": "6 months since first period, still irregular"}
+    ],
+    "today": "2026-08-10",
+    "question": null
+  },
+  {
+    "id": "TC26",
+    "category": "wellness_plan_perimenopause_hot_flashes",
+    "target_endpoint": "wellness_plan",
+    "profile": {"username": "Margaret", "age": 47, "avg_cycle_length": 21, "avg_period_duration": 3, "stress_level": 3, "sleep_hours": 5, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 5, "days_until_period": 16, "next_period": "2026-08-26", "fertile_window": "13 Aug – 19 Aug 2026", "ovulation_day": "18 Aug 2026", "cycle_length": 21},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["hot flashes", "sleepissue"], "mood": "Irritable", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": "Give me recommendations for today."
+  },
+  {
+    "id": "TC27",
+    "category": "cycle_phase_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Olivia", "age": 25, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 7, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 9, "days_until_period": 19, "next_period": "2026-08-29", "fertile_window": "18 Aug – 24 Aug 2026", "ovulation_day": "23 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": [], "mood": "Good", "flow": "None", "notes": ""}],
+    "today": "2026-08-10",
+    "question": "What cycle phase am I in right now and what does it mean for my energy levels?"
+  },
+  {
+    "id": "TC28",
+    "category": "fertile_window_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Bianca", "age": 28, "avg_cycle_length": 30, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 7.5, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Fertility", "phase_description": "Peak fertility window. Energy is at its highest.", "cycle_day": 15, "days_until_period": 15, "next_period": "2026-08-25", "fertile_window": "10 Aug – 16 Aug 2026", "ovulation_day": "15 Aug 2026", "cycle_length": 30},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": [], "mood": "Great", "flow": "None", "notes": ""}],
+    "today": "2026-08-10",
+    "question": "When is my fertile window this cycle and when will I ovulate?"
+  },
+  {
+    "id": "TC29",
+    "category": "symptom_trend_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Yasmin", "age": 30, "avg_cycle_length": 27, "avg_period_duration": 5, "stress_level": 3, "sleep_hours": 6.5, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 20, "days_until_period": 7, "next_period": "2026-08-17", "fertile_window": "already passed this cycle", "ovulation_day": "31 Jul 2026", "cycle_length": 27},
+    "symptom_logs": [
+      {"date": "2026-08-09", "symptoms": ["headache", "moodswing"], "mood": "Irritable", "flow": "None", "notes": ""},
+      {"date": "2026-08-08", "symptoms": ["headache"], "mood": "Okay", "flow": "None", "notes": ""},
+      {"date": "2026-08-04", "symptoms": ["fatigue"], "mood": "Tired", "flow": "None", "notes": ""},
+      {"date": "2026-07-31", "symptoms": [], "mood": "Good", "flow": "None", "notes": ""}
+    ],
+    "today": "2026-08-10",
+    "question": "How have my symptoms and mood been trending this week compared to last week?"
+  },
+  {
+    "id": "TC30",
+    "category": "exercise_during_period_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Tia", "age": 21, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 7, "exercise_days": 4, "fitness_level": "moderate"},
+    "prediction": {"current_phase": "Menstrual", "phase_description": "Your period is active. Rest and stay hydrated.", "cycle_day": 2, "days_until_period": 27, "next_period": "2026-09-06", "fertile_window": "18 Aug – 24 Aug 2026", "ovulation_day": "23 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["cramps"], "mood": "Okay", "flow": "Medium", "notes": ""}],
+    "today": "2026-08-10",
+    "question": "Is it okay to do heavy weightlifting during my period, or should I take it easy?"
+  },
+  {
+    "id": "TC31",
+    "category": "nutrition_cravings_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Karla", "age": 27, "avg_cycle_length": 29, "avg_period_duration": 5, "stress_level": 3, "sleep_hours": 6, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 24, "days_until_period": 5, "next_period": "2026-08-15", "fertile_window": "already passed this cycle", "ovulation_day": "01 Aug 2026", "cycle_length": 29},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["foodcravings", "bloating"], "mood": "Okay", "flow": "None", "notes": "craving sugar constantly"}],
+    "today": "2026-08-10",
+    "question": "I keep craving sugary food before my period, what should I eat instead?"
+  },
+  {
+    "id": "TC32",
+    "category": "sleep_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Nour", "age": 34, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 4, "sleep_hours": 5, "exercise_days": 1, "fitness_level": "low"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 21, "days_until_period": 7, "next_period": "2026-08-17", "fertile_window": "already passed this cycle", "ovulation_day": "30 Jul 2026", "cycle_length": 28},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["sleepissue"], "mood": "Tired", "flow": "None", "notes": "waking up at 3am most nights"}],
+    "today": "2026-08-10",
+    "question": "Why do I sleep so badly in the days before my period, and what can help?"
+  },
+  {
+    "id": "TC33",
+    "category": "mood_swings_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Delphine", "age": 26, "avg_cycle_length": 27, "avg_period_duration": 5, "stress_level": 3, "sleep_hours": 6.5, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 23, "days_until_period": 4, "next_period": "2026-08-14", "fertile_window": "already passed this cycle", "ovulation_day": "30 Jul 2026", "cycle_length": 27},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["moodswing"], "mood": "Irritable", "flow": "None", "notes": ""}],
+    "today": "2026-08-10",
+    "question": "My mood swings get really intense before my period. Is that normal and how do I manage it?"
+  },
+  {
+    "id": "TC34",
+    "category": "late_period_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Renata", "age": 29, "avg_cycle_length": 29, "avg_period_duration": 5, "stress_level": 5, "sleep_hours": 5, "exercise_days": 0, "fitness_level": "low"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 33, "days_until_period": -4, "next_period": "2026-08-06", "fertile_window": "already passed this cycle", "ovulation_day": "26 Jul 2026", "cycle_length": 29},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["bloating"], "mood": "Anxious", "flow": "None", "notes": "period is 4 days late, very stressful month at work"}],
+    "today": "2026-08-10",
+    "question": "My period is a few days late and I've been really stressed lately, could that be why?"
+  },
+  {
+    "id": "TC35",
+    "category": "birth_control_switch_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Hafsah", "age": 24, "avg_cycle_length": 31, "avg_period_duration": 4, "stress_level": 2, "sleep_hours": 7, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 6, "days_until_period": 25, "next_period": "2026-09-04", "fertile_window": "20 Aug – 26 Aug 2026", "ovulation_day": "25 Aug 2026", "cycle_length": 31},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["spotting"], "mood": "Okay", "flow": "Spotting", "notes": "stopped the pill 2 months ago"}],
+    "today": "2026-08-10",
+    "question": "My cycles have been different since I stopped taking birth control pills, is that expected?"
+  },
+  {
+    "id": "TC36",
+    "category": "spotting_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Paula", "age": 31, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 7, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Fertility", "phase_description": "Peak fertility window. Energy is at its highest.", "cycle_day": 14, "days_until_period": 14, "next_period": "2026-08-24", "fertile_window": "09 Aug – 15 Aug 2026", "ovulation_day": "14 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["spotting"], "mood": "Okay", "flow": "Spotting", "notes": "light spotting around ovulation time"}],
+    "today": "2026-08-10",
+    "question": "I noticed some light spotting mid-cycle, around when I usually ovulate. Is that common?"
+  },
+  {
+    "id": "TC37",
+    "category": "perimenopause_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Deborah", "age": 48, "avg_cycle_length": 20, "avg_period_duration": 3, "stress_level": 3, "sleep_hours": 5, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 4, "days_until_period": 16, "next_period": "2026-08-26", "fertile_window": "12 Aug – 18 Aug 2026", "ovulation_day": "17 Aug 2026", "cycle_length": 20},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["hot flashes"], "mood": "Irritable", "flow": "None", "notes": "cycles have gotten noticeably shorter over the last year"}],
+    "today": "2026-08-10",
+    "question": "My cycles have been getting shorter and I get hot flashes now. Is this just normal aging?"
+  },
+  {
+    "id": "TC38",
+    "category": "ovulation_pain_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Anya", "age": 23, "avg_cycle_length": 28, "avg_period_duration": 4, "stress_level": 2, "sleep_hours": 7.5, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Fertility", "phase_description": "Peak fertility window. Energy is at its highest.", "cycle_day": 14, "days_until_period": 14, "next_period": "2026-08-24", "fertile_window": "09 Aug – 15 Aug 2026", "ovulation_day": "14 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["cramps"], "mood": "Okay", "flow": "None", "notes": "sharp one-sided pain yesterday"}],
+    "today": "2026-08-10",
+    "question": "I get a sharp pain on one side around ovulation every month, what causes that?"
+  },
+  {
+    "id": "TC39",
+    "category": "period_pain_relief_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Isabelle", "age": 22, "avg_cycle_length": 27, "avg_period_duration": 5, "stress_level": 3, "sleep_hours": 6.5, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Menstrual", "phase_description": "Your period is active. Rest and stay hydrated.", "cycle_day": 1, "days_until_period": 27, "next_period": "2026-09-06", "fertile_window": "17 Aug – 23 Aug 2026", "ovulation_day": "22 Aug 2026", "cycle_length": 27},
+    "symptom_logs": [{"date": "2026-08-10", "symptoms": ["cramps"], "mood": "Tired", "flow": "Heavy", "notes": "cramps are really bad today"}],
+    "today": "2026-08-10",
+    "question": "What are some safe ways to relieve really bad period cramps at home?"
+  },
+  {
+    "id": "TC40",
+    "category": "breast_tenderness_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Monica", "age": 35, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 3, "sleep_hours": 6.5, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 22, "days_until_period": 6, "next_period": "2026-08-16", "fertile_window": "already passed this cycle", "ovulation_day": "31 Jul 2026", "cycle_length": 28},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["sorebreasts"], "mood": "Okay", "flow": "None", "notes": ""}],
+    "today": "2026-08-10",
+    "question": "My breasts get really sore and tender every month before my period, is there anything that helps?"
+  },
+  {
+    "id": "TC41",
+    "category": "general_wellness_checkin",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Freya", "age": 26, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 7.5, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 8, "days_until_period": 20, "next_period": "2026-08-30", "fertile_window": "17 Aug – 23 Aug 2026", "ovulation_day": "22 Aug 2026", "cycle_length": 28},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": [], "mood": "Good", "flow": "None", "notes": ""}],
+    "today": "2026-08-10",
+    "question": "How am I doing overall this month based on what I've logged?"
+  },
+  {
+    "id": "TC42",
+    "category": "exam_stress_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Layla", "age": 18, "avg_cycle_length": 30, "avg_period_duration": 6, "stress_level": 4, "sleep_hours": 6, "exercise_days": 1, "fitness_level": "low"},
+    "prediction": {"current_phase": "Follicular", "phase_description": "Energy rising. Good time for strength training.", "cycle_day": 7, "days_until_period": 23, "next_period": "2026-09-02", "fertile_window": "19 Aug – 25 Aug 2026", "ovulation_day": "24 Aug 2026", "cycle_length": 30},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["headache", "fatigue"], "mood": "Stressed", "flow": "None", "notes": "final exams this week"}],
+    "today": "2026-08-10",
+    "question": "I have exams this week and I'm exhausted. Any quick tips to manage stress and energy?"
+  },
+  {
+    "id": "TC43",
+    "category": "weight_change_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Sofia", "age": 29, "avg_cycle_length": 29, "avg_period_duration": 5, "stress_level": 3, "sleep_hours": 6.5, "exercise_days": 2, "fitness_level": "average"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 23, "days_until_period": 6, "next_period": "2026-08-16", "fertile_window": "already passed this cycle", "ovulation_day": "01 Aug 2026", "cycle_length": 29},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["bloating"], "mood": "Okay", "flow": "None", "notes": "feel puffy every month before my period"}],
+    "today": "2026-08-10",
+    "question": "I feel like I gain water weight every month before my period. Why does that happen?"
+  },
+  {
+    "id": "TC44",
+    "category": "acne_breakout_question",
+    "target_endpoint": "chatbot",
+    "profile": {"username": "Ruby", "age": 20, "avg_cycle_length": 28, "avg_period_duration": 5, "stress_level": 2, "sleep_hours": 7, "exercise_days": 3, "fitness_level": "average"},
+    "prediction": {"current_phase": "Luteal", "phase_description": "Progesterone rising. Prefer low-impact exercise.", "cycle_day": 21, "days_until_period": 7, "next_period": "2026-08-17", "fertile_window": "already passed this cycle", "ovulation_day": "30 Jul 2026", "cycle_length": 28},
+    "symptom_logs": [{"date": "2026-08-09", "symptoms": ["acne"], "mood": "Okay", "flow": "None", "notes": "breakouts always happen around the same time each cycle"}],
+    "today": "2026-08-10",
+    "question": "Why do I always break out right before my period, and what can I do about it?"
+  }
+]

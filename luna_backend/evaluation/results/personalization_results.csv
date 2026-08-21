@@ -1,0 +1,69 @@
+id,category,question,profile_a_label,profile_b_label,response_a,response_b,response_similarity,personalization_delta_score,judge_comments,automated_evaluation,judge_model,generation_error,judge_error,timestamp
+PAIR01,stress_sleep_exercise_contrast,Give me recommendations for today.,"low stress, good sleep, regular exercise","high stress, poor sleep, little exercise","Here are some recommendations for you today while in the **follicular phase**:
+
+1. **Exercise**: Since your energy levels are rising, it's a great time for **strength training** or any high-intensity workouts.
+2. **Nutrition**: Focus on a balanced diet rich in **lean proteins, whole grains, and vegetables** to fuel your energy and support muscle recovery.
+3. **Mindfulness**: Consider incorporating **mindfulness practices** such as meditation or yoga to maintain your low stress levels.
+4. **Hydration**: Drink plenty of **water** to stay hydrated, especially if you're exercising.
+5. **Social Activities**: Engage in social activities or **group workouts** to boost motivation and maintain a positive mindset.
+
+Always listen to your body and adjust your activities as needed! For personalized medical advice, consult a healthcare professional.","Since you are in the **follicular phase** of your cycle, here are some recommendations for today:
+
+1. **Physical Activity**: This is a great time for **strength training** or starting a new exercise routine. Even light workouts can help boost your energy levels.
+
+2. **Nutrition**: Focus on a balanced diet rich in **protein**, **fruits**, and **vegetables** to support your energy levels and recovery as you increase your activity.
+
+3. **Stress Management**: Since your stress level is moderate (5), consider practicing relaxation techniques such as **yoga**, **meditation**, or **deep-breathing exercises** to help keep your stress in check.
+
+4. **Sleep**: Aim to improve your **sleep quality**. Try to get at least 7-8 hours of sleep for better recovery and mood stability.
+
+5. **Stay Hydrated**: Make sure to drink plenty of water throughout the day, especially if you’re increasing your activity levels.
+
+Always listen to your body, and consult a healthcare professional for personalised advice.",0.3327,5,"Reply B focuses on stress management and improving sleep quality, which are critical for User B's high stress and low sleep situation.",True,gpt-4o-mini,,,2026-08-10T06:25:42.674806+00:00
+PAIR02,age_contrast_teen_vs_perimenopause,What should I know about my cycle this week?,"teen, age 16","perimenopausal, age 47","This week, you are in the **follicular phase** of your cycle, specifically on **day 6**. Here's what to keep in mind:
+
+- **Energy Levels**: Your energy is likely to be rising, making it a good time for activities that require strength, like strength training and other workouts.
+- **Physical and Emotional Well-being**: As you move through the follicular phase, you may find your mood improving, and you may feel more motivated to engage in physical activities.
+- **Fertile Window**: Keep in mind that your next **fertile window** will be from **August 20 to August 26, 2026**, peaking with ovulation on **August 25, 2026**.
+
+Remember, it’s important to listen to your body and consult a healthcare professional if you have specific concerns or questions about your menstrual health!","This week, you're in the **follicular phase** of your cycle, which is characterized by rising energy levels. It's a great time for activities that involve **strength training** and other forms of exercise. Here are a few key points:
+
+- **Current Cycle Day**: 5
+- **Days Until Next Period**: 16
+- **Fertile Window**: You're approaching your fertile window, which is from **August 13 to August 19, 2026**.
+- **Ovulation Day**: Anticipate ovulation around **August 18, 2026**.
+
+Make sure to take advantage of this high-energy phase! If you have more specific questions about symptoms or health, feel free to ask. Always consult a healthcare professional for personalized advice.",0.4809,2,"Both replies are similar despite different age profiles, lacking specific age-related health considerations.",True,gpt-4o-mini,,,2026-08-10T06:27:58.316050+00:00
+PAIR03,phase_contrast_menstrual_vs_fertile,Give me recommendations for today.,currently menstruating,currently in fertile window,"Since you are in the **menstrual** phase of your cycle, here are some recommendations for today:
+
+- **Rest**: Allow yourself to take it easy and listen to your body's needs.
+- **Stay Hydrated**: Drink plenty of water to help ease cramps and maintain hydration.
+- **Nutrition**: Consider eating iron-rich foods, like leafy greens or legumes, to replenish lost nutrients.
+- **Gentle Exercise**: If you're up for it, light activities like stretching or walking can help alleviate some discomfort.
+- **Pain Management**: If you're experiencing cramps, you might try heat pads or over-the-counter pain relief, if necessary.
+
+Remember, these are general tips; consult a healthcare professional for personalized advice!","Since you are at the **peak fertility window** today, here are some recommendations:
+
+1. **Stay Active**: Maintain your regular exercise routine to keep your energy levels high.
+2. **Hydrate**: Drink plenty of water to stay hydrated, especially if you're exercising.
+3. **Nutrition**: Consume a balanced diet rich in vitamins and minerals. Consider foods that support reproductive health, such as fruits, vegetables, whole grains, and healthy fats.
+4. **Track Your Cycle**: Since you’re in your fertile window, note any changes in your body and mood.
+5. **Relaxation**: Engage in stress-reducing activities such as meditation or yoga to maintain a low stress level.
+
+Always remember to consult a healthcare professional for personalized advice. Enjoy your day!",0.202,5,"The replies are tailored to reflect the different menstrual phases, with emphasis on rest for Profile A and activity for Profile B.",True,gpt-4o-mini,,,2026-08-10T06:28:06.754830+00:00
+PAIR04,symptom_burden_contrast,How am I doing this week and what should I focus on?,no notable symptoms,heavy PMS symptom burden,"This week, you are in the **luteal phase** of your cycle, which is characterized by rising **progesterone** levels. During this phase, it's a good idea to focus on:
+
+- **Relaxation**: Maintain your low stress levels. Engage in activities that help you unwind.
+- **Nutrition**: Consider maintaining a balanced diet rich in vitamins and minerals to support your body.
+- **Low-impact exercise**: Since you prefer low-impact workouts, continue with gentle activities like walking, yoga, or stretching to keep energy levels stable.
+  
+Remember to listen to your body and give yourself time to rest if needed. Always consult a healthcare professional for personalized health advice.","This week, you are in the **luteal phase** of your cycle, which typically involves rising **progesterone levels**. You’re currently on cycle day **20**, with **8 days until your period**. 
+
+Based on your recent symptom logs, it seems you're experiencing some discomfort with PMS symptoms like **cramps**, **sore breasts**, **bloating**, and a **headache**. Here are some suggestions for this week:
+
+- **Focus on Relaxation**: Engage in low-impact exercises like walking or yoga to help alleviate some PMS symptoms.
+- **Nutrition**: Consider eating foods rich in magnesium (like nuts and leafy greens) to help with bloating and cramps.
+- **Hydration**: Stay well-hydrated to help reduce bloating.
+- **Sleep**: Aim for quality sleep to help manage stress and mood swings.
+
+Remember, if symptoms are severe or persistent, it may be beneficial to consult a healthcare professional for personalized advice.",0.2702,5,Reply B specifically addresses severe PMS symptoms and provides tailored suggestions for managing them.,True,gpt-4o-mini,,,2026-08-10T06:28:15.154327+00:00

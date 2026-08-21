@@ -46,8 +46,10 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── AI wellness features ────────────────────────────────────────
   String? _aiRecommendations;
   bool _loadingRecommendations = false;
+  bool _recommendationsError = false;
   String? _weeklySummary;
   bool _loadingWeeklySummary = false;
+  bool _weeklySummaryError = false;
 
   static final List<Map<String, dynamic>> _availableSymptoms = [
     {'name': 'Cramps', 'icon': Icons.sick_outlined},
@@ -815,7 +817,7 @@ class _HomeScreenState extends State<HomeScreen> {
   //  LOG SYMPTOMS
   // ════════════════════════════════════════════════════════════════
   void _showLogSymptomsDialog() {
-    final today = DateTime.now();
+    DateTime selectedDate = DateTime.now();
     List<String> selected = [];
     String selectedMood = '';
     String selectedFlow = '';
@@ -859,11 +861,34 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const Spacer(),
-                      Text(
-                        _fmtShortFull(today),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
+                      GestureDetector(
+                        onTap: () async {
+                          final p = await _pickDate(
+                            ctx,
+                            selectedDate,
+                            DateTime(2020),
+                            DateTime.now(),
+                          );
+                          if (p != null) setDlg(() => selectedDate = p);
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _fmtShortFull(selectedDate),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF7F77DD),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            const Icon(
+                              Icons.edit_calendar_outlined,
+                              size: 14,
+                              color: Color(0xFF7F77DD),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1094,7 +1119,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             }
                             Navigator.pop(context);
                             _saveSymptomLog(
-                              date: today,
+                              date: selectedDate,
                               symptoms: selected,
                               mood: selectedMood,
                               flow: selectedFlow,
@@ -1240,6 +1265,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // Date
+                _editDateTile(
+                  label: 'Date',
+                  date: today,
+                  onTap: () async {
+                    final p = await _pickDate(
+                      ctx,
+                      today,
+                      DateTime(2020),
+                      DateTime.now(),
+                    );
+                    if (p != null) setDlg(() => today = p);
+                  },
+                ),
+                const SizedBox(height: 10),
 
                 // Medication name
                 _medInput(
@@ -1467,7 +1508,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Uri.parse('$backendBaseUrl/predict'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'user_id': prefs.getString('uid') ?? 'user_001',
+              'user_id': AuthService.userId,
               'avg_cycle_length': avgCycle,
               'avg_period_duration': avgDuration,
               'age': age,
@@ -1493,8 +1534,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchAiRecommendations() async {
     setState(() => _loadingRecommendations = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final uid = prefs.getString('uid') ?? 'user_001';
+      final uid = AuthService.userId;
       final response = await http
           .post(
             Uri.parse('$backendBaseUrl/ai/recommendations'),
@@ -1504,10 +1544,17 @@ class _HomeScreenState extends State<HomeScreen> {
           .timeout(const Duration(seconds: 20));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() => _aiRecommendations = data['text'] as String?);
+        setState(() {
+          _aiRecommendations = data['text'] as String?;
+          _recommendationsError = false;
+        });
+      } else {
+        setState(() => _recommendationsError = true);
       }
     } catch (_) {
-      // Silent — this is a bonus card, not core functionality.
+      // Network/timeout — not core functionality, but still worth telling
+      // the user this failed rather than looking like "nothing logged".
+      setState(() => _recommendationsError = true);
     } finally {
       if (mounted) setState(() => _loadingRecommendations = false);
     }
@@ -1516,8 +1563,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchWeeklySummary() async {
     setState(() => _loadingWeeklySummary = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final uid = prefs.getString('uid') ?? 'user_001';
+      final uid = AuthService.userId;
       final response = await http
           .post(
             Uri.parse('$backendBaseUrl/ai/weekly-summary'),
@@ -1527,10 +1573,17 @@ class _HomeScreenState extends State<HomeScreen> {
           .timeout(const Duration(seconds: 20));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() => _weeklySummary = data['text'] as String?);
+        setState(() {
+          _weeklySummary = data['text'] as String?;
+          _weeklySummaryError = false;
+        });
+      } else {
+        setState(() => _weeklySummaryError = true);
       }
     } catch (_) {
-      // Silent — this is a bonus card, not core functionality.
+      // Network/timeout — not core functionality, but still worth telling
+      // the user this failed rather than looking like "nothing logged".
+      setState(() => _weeklySummaryError = true);
     } finally {
       if (mounted) setState(() => _loadingWeeklySummary = false);
     }
@@ -1543,30 +1596,42 @@ class _HomeScreenState extends State<HomeScreen> {
   ) async {
     try {
       final lastStart = _parseDate(_periodHistory.last['start']);
-      final isoKey = data['next_period_start_iso'] as String?;
-      DateTime? nextStart;
-      if (isoKey != null && isoKey.isNotEmpty) {
-        nextStart = DateTime.parse(isoKey);
-      } else {
+      // The backend's cycle-length model predicts from symptom fields
+      // (headaches, cramps, sleep issues, ...) that this app never collects
+      // or sends, so predicted_cycle_length barely reflects real cycles.
+      // Once there's real logged history, trust that over the model.
+      final hasRealHistory = _periodHistory.length > 1;
+
+      DateTime nextStart;
+      if (hasRealHistory) {
         nextStart = lastStart.add(Duration(days: avgCycle.round()));
+      } else {
+        final isoKey = data['next_period_start_iso'] as String?;
+        nextStart = (isoKey != null && isoKey.isNotEmpty)
+            ? DateTime.parse(isoKey)
+            : lastStart.add(Duration(days: avgCycle.round()));
       }
       final nextEnd = nextStart.add(Duration(days: avgDuration.round() - 1));
       final predicted = _buildRange(nextStart, nextEnd);
       final days = nextStart.difference(DateTime.now()).inDays;
       final cycleDay = DateTime.now().difference(lastStart).inDays + 1;
 
-      final nextPeriod =
-          data['next_period_start']?.toString() ?? _fmt(nextStart);
-      final fertileWindow = data['fertile_window']?.toString() ?? '—';
-      final ovulationDay = data['ovulation_day']?.toString() ?? '—';
-      // With fewer than 2 logged periods there's no real history to trust,
-      // and the backend's ML model predicts cycle length purely from
-      // symptom data — it never sees this profile setting. Show the
-      // profile value in that cold-start case instead of the model's
-      // symptom-only guess; once real history exists, trust the model.
-      final cycleLength = _periodHistory.length > 1
-          ? '${(data['predicted_cycle_length'] ?? avgCycle).toStringAsFixed(0)} days'
-          : '${avgCycle.toStringAsFixed(0)} days';
+      final String nextPeriod;
+      final String fertileWindow;
+      final String ovulationDay;
+      if (hasRealHistory) {
+        final ovulation = nextStart.subtract(const Duration(days: 14));
+        final fertileStart = ovulation.subtract(const Duration(days: 5));
+        final fertileEnd = ovulation.add(const Duration(days: 1));
+        nextPeriod = _fmt(nextStart);
+        fertileWindow = '${_fmtShort(fertileStart)} – ${_fmt(fertileEnd)}';
+        ovulationDay = _fmt(ovulation);
+      } else {
+        nextPeriod = data['next_period_start']?.toString() ?? _fmt(nextStart);
+        fertileWindow = data['fertile_window']?.toString() ?? '—';
+        ovulationDay = data['ovulation_day']?.toString() ?? '—';
+      }
+      final cycleLength = '${avgCycle.round()} days';
       final currentPhase = data['current_phase']?.toString() ?? '—';
       final phaseDesc =
           data['phase_description']?.toString() ?? 'Prediction updated.';
@@ -2582,12 +2647,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: 'AI Health Recommendations',
                 icon: Icons.tips_and_updates_outlined,
                 loading: _loadingRecommendations,
+                error: _recommendationsError,
                 text: _aiRecommendations,
               ),
               _aiTextCard(
                 title: 'Weekly Health Summary',
                 icon: Icons.calendar_view_week_outlined,
                 loading: _loadingWeeklySummary,
+                error: _weeklySummaryError,
                 text: _weeklySummary,
               ),
             ],
@@ -2618,6 +2685,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required String title,
     required IconData icon,
     required bool loading,
+    required bool error,
     required String? text,
   }) {
     return Container(
@@ -2668,7 +2736,9 @@ class _HomeScreenState extends State<HomeScreen> {
             data: text ??
                 (loading
                     ? 'Generating...'
-                    : 'Log your cycle and symptoms to unlock this.'),
+                    : error
+                        ? "Couldn't load this right now — try again shortly."
+                        : 'Log your cycle and symptoms to unlock this.'),
             styleSheet: MarkdownStyleSheet(
               p: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.5),
               strong: const TextStyle(

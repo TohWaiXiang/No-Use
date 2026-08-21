@@ -4,7 +4,6 @@ import '../services/notification_service.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import 'main_scaffold.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -50,13 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (result['success'] == true) {
-        final profile = await AuthService.getUserProfile();
-        if (profile != null) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('username', profile['username'] ?? 'User');
-          await prefs.setString('uid', profile['uid'] ?? '');
-        }
-
+        // AuthService.login() already caches uid/username via _cacheProfile.
         await NotificationService.instance.rescheduleEnabledReminders();
 
         if (!mounted) return;

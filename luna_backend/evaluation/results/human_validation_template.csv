@@ -1,0 +1,103 @@
+id,category,endpoint,question,generated_response,human_relevance,human_personalization,human_helpfulness,human_clarity,human_safety,human_comments
+TC01,general_recommendations,recommendations,,"Hi Ain! Based on your health data and current phase of your cycle, here are some **personalized wellness recommendations**:
+
+- **Strength Training**: Since you're in the **follicular phase** with rising energy levels, consider increasing your **strength training sessions** to 4 days a week. This can help build muscle and leverage your energetic phase effectively.
+
+- **Hydration for Bloating**: To address recent **bloating**, aim to drink at least **8-10 glasses of water** daily. Incorporating herbal teas like peppermint can also help with bloating relief.
+
+- **Sleep Routine**: Maintain your current average of **7.5 hours of sleep** but try to establish a consistent bedtime routine. Aim to go to bed and wake up around the same time every day to improve sleep quality.
+
+- **Mindfulness Practices**: Since your stress level is relatively low at **2**, continue with low-impact mindfulness practices like **yoga or meditation** for 10 minutes before bed. This can help transition into sleep more smoothly and maintain your stress levels.
+
+- **Nutrient-Dense Diet**: Focus on incorporating more **leafy greens, lean proteins, and whole grains** into your meals, especially during your **fertile window** (Aug 18 – Aug 24). This can support your body’s increased nutritional needs during ovulation.
+
+Remember to always consult a healthcare professional for personalized medical advice tailored to your individual needs.",,,,,,
+TC11,weekly_summary_improving,weekly_summary,,"## Weekly Summary for Elena
+
+This week has shown **notable improvements** in your overall well-being! Here are some highlights:
+
+- Your **mood** has improved significantly—logging as **Good** most often compared to being **Tired** last week.
+- You've reduced your **symptom entries** to just one this week, with fatigue being the only noted symptom, down from five the previous week.
+- It's encouraging to see your **exercise routine** remains strong with **4 days/week**, contributing to your overall wellness.
+
+While your energy appears to be rising as you progress through the **Follicular phase**, it's important to continue monitoring how you feel. As always, remember to consult a healthcare professional for personalized medical advice.",,,,,,
+TC19,wellness_plan_menstrual_low_energy,wellness_plan,,"## Daily Wellness Plan for Chloe
+
+### **Current Phase: Menstrual**
+Your body is in a state that often requires more rest and care. Focus on **hydration** and **gentle activities** today.
+
+- **Sleep**: Aim for at least **7-8 hours** of restful sleep; consider going to bed earlier tonight.
+- **Exercise**: Engage in **light stretching** or **yoga** for about **20-30 minutes** to alleviate cramps and promote relaxation.
+- **Relaxation**: Schedule some **quiet time** for meditation or deep breathing exercises; consider journaling your thoughts and emotions.
+- **Nutrition**: 
+  - Drink plenty of **water** (aim for at least 8-10 glasses today).
+  - Incorporate **iron-rich foods** (like spinach, lentils, and red meat) into your meals to combat fatigue.
+  - Consider having **herbal teas** (like ginger or chamomile) to soothe cramps and help you relax.
+
+### **Reminder**: Always consult a healthcare professional for personalized medical advice regarding your health and wellness.",,,,,,
+TC27,cycle_phase_question,chatbot,What cycle phase am I in right now and what does it mean for my energy levels?,"[infographic:cycle_phase] {""phase"": ""follicular"", ""dayOfCycle"": 9, ""cycleLength"": 28}",,,,,,
+TC02,high_stress_low_sleep_recommendations,recommendations,,"Hi Priya! Here are some personalized lifestyle and wellness recommendations to help you balance your **stress**, improve your **sleep**, and enhance your overall well-being:
+
+- **Sleep Hygiene**: Aim for at least **7-8 hours** of sleep each night. Start winding down **1 hour before bed** by limiting screen time and engaging in calming activities like reading or gentle stretches to enhance your **sleep quality**.
+
+- **Breathing Exercises**: Incorporate **daily breathing exercises** or mindfulness meditation for just **5-10 minutes** to help decrease your **stress levels**. Consider trying guided sessions available on meditation apps to help calm your mind, especially during your **luteal phase**.
+
+- **Low-Impact Exercise**: Since you prefer **low-impact exercise**, try to include **walking or yoga** at least **3 times a week**. Start with short 20-30 minute sessions to gradually build your fitness level and release endorphins that can boost your mood.
+
+- **Balanced Nutrition**: Focus on a diet rich in **whole foods**. Prioritize leafy greens, lean proteins, and whole grains, and stay **hydrated**. Consider a warm, herbal tea in the evening (e.g., chamomile or peppermint) to help with relaxation and digestion.
+
+- **Routine Check-ins**: Schedule **weekly reflections** to assess your mood and physical symptoms. This can help you identify triggers and make adjustments to your lifestyle or reach out for support as needed. 
+
+Remember to always consult a healthcare professional for personalized medical advice. Take care!",,,,,,
+TC12,weekly_summary_worsening,weekly_summary,,"### Weekly Summary for Divya
+
+This week has shown some **notable changes** in your health patterns compared to last week. You've logged your symptoms more frequently, noting **irritability** as your predominant mood along with **headaches** and **moodswings**. Here are the key points:
+
+- **Increased Symptom Frequency**: 6 total symptom entries this week versus 0 entries last week.
+- **Mood Shift**: Transition from an **""Okay""** mood last week to primarily **""Irritable""** this week.
+- **Fatigue and Stress**: Continuation of symptoms like **headaches** and a noted **stress level** of 4.
+
+It’s essential to prioritize your well-being, try to incorporate more restorative activities, and remember to consult a healthcare professional for personalized medical advice regarding your symptoms and health concerns.",,,,,,
+TC20,wellness_plan_high_stress,wellness_plan,,"**Daily Wellness Plan for Farah**
+
+**Current Cycle Phase**: Luteal  
+**Days Until Next Period**: 9  
+**Stress Level**: 5  
+**Sleep Quality**: 5 hours/night  
+**Exercise Frequency**: 1 day/week  
+**Fitness Level**: Low  
+
+To support your wellness during the luteal phase, especially with elevated **stress levels** and **sleep quality concerns**, here's a tailored plan:
+
+- **Sleep**: 
+  - Aim for **7-8 hours** of sleep each night. Try to establish a consistent bedtime routine by going to bed at the same time each night.
+  - Consider creating a **relaxing pre-sleep ritual**, such as reading or practicing gentle yoga.
+
+- **Exercise**:
+  - Engage in **low-impact exercise** at least **3 times this week**. Options include walking, gentle yoga, or swimming.
+  - Schedule your exercise sessions to coincide with when you feel most energized, potentially earlier in the day.
+
+- **Nutrition**:
+  - Focus on a **balanced diet** rich in whole foods: fruits, vegetables, lean proteins, and whole grains.
+  - Incorporate **foods high in magnesium** (like spinach, nuts, and seeds) to help with mood stability.
+  - Stay hydrated by drinking plenty of water throughout the day.
+
+- **Relaxation**:
+  - Integrate **mindfulness practices** into your daily routine, such as **meditation or deep breathing exercises** for at least **10-15 minutes** each day.
+  - Consider journaling your thoughts and feelings, which can help manage anxious moods.
+
+Always remember to **consult a healthcare professional** to tailor this wellness plan further to your personal health needs.",,,,,,
+TC28,fertile_window_question,chatbot,When is my fertile window this cycle and when will I ovulate?,"Your **fertile window** this cycle is from **August 10 to August 16, 2026**. You will **ovulate** on **August 15, 2026**.",,,,,,
+TC03,regular_healthy_recommendations,recommendations,,"Here are some personalized lifestyle and wellness recommendations for you, Wei:
+
+- **Maximize your energy**: With high energy during your fertility phase, consider incorporating **high-intensity interval training (HIIT)** or strength training into your workouts 2-3 times this week to further enhance your fitness levels.
+
+- **Focus on nutrient-dense foods**: Incorporate **fertility-boosting foods** such as leafy greens, avocados, and nuts to support your hormonal health during this peak fertility window.
+
+- **Prioritize rest**: Even with 8 hours of sleep, consider practicing **yoga or mindfulness meditation** for 10-15 minutes before bedtime to improve your relaxation and enhance sleep quality.
+
+- **Stay hydrated**: Given your high activity level, aim to drink at least **2-3 liters of water daily** to maintain optimal hydration and support overall health, especially during your fertile phase.
+
+- **Socialize and connect**: Engage in social activities or gatherings with friends to uplift your mood and add to your positive experience during this time. 
+
+Always remember to consult a **healthcare professional** for personalized medical advice!",,,,,,

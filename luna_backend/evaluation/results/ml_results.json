@@ -1,0 +1,116 @@
+{
+  "generated_at": "2026-08-10T06:19:36.749322+00:00",
+  "random_state": 42,
+  "test_size": 0.2,
+  "phase_classifier": {
+    "model_file": "cycle_model.pkl",
+    "task": "4-class cycle-phase classification (Menstrual/Follicular/Fertility/Luteal)",
+    "test_set_size": 483,
+    "accuracy": 0.7226,
+    "macro_precision": 0.7192,
+    "macro_recall": 0.7173,
+    "macro_f1": 0.7156,
+    "per_class": [
+      {
+        "class": "Fertility",
+        "precision": 0.5579,
+        "recall": 0.5,
+        "f1": 0.5274,
+        "support": 106
+      },
+      {
+        "class": "Follicular",
+        "precision": 0.7568,
+        "recall": 0.6512,
+        "f1": 0.7,
+        "support": 129
+      },
+      {
+        "class": "Luteal",
+        "precision": 0.7118,
+        "recall": 0.8345,
+        "f1": 0.7683,
+        "support": 145
+      },
+      {
+        "class": "Menstrual",
+        "precision": 0.8505,
+        "recall": 0.8835,
+        "f1": 0.8667,
+        "support": 103
+      }
+    ],
+    "confusion_matrix": {
+      "labels": [
+        "Fertility",
+        "Follicular",
+        "Luteal",
+        "Menstrual"
+      ],
+      "matrix": [
+        [
+          53,
+          20,
+          31,
+          2
+        ],
+        [
+          24,
+          84,
+          10,
+          11
+        ],
+        [
+          18,
+          3,
+          121,
+          3
+        ],
+        [
+          0,
+          4,
+          8,
+          91
+        ]
+      ]
+    },
+    "note": "MAE/RMSE/R2/+-day-accuracy do not apply to a categorical classifier; see cycle_length_regressor and next_period_date_prediction below for the day-based regression metrics."
+  },
+  "cycle_length_regressor": {
+    "model_file": "cycle_length_model.pkl",
+    "task": "predict days until next period (cycle length in days)",
+    "test_set_size": 15,
+    "mae_days": 6.0,
+    "rmse_days": 9.96,
+    "r2": -0.0785,
+    "within_1_day_pct": 6.67,
+    "within_3_day_pct": 66.67,
+    "baseline": {
+      "description": "naive baseline: always predict 28 days",
+      "mae_days": 6.133,
+      "rmse_days": 9.771,
+      "r2": -0.0379,
+      "within_1_day_pct": 13.33,
+      "within_3_day_pct": 40.0
+    },
+    "beats_baseline": true
+  },
+  "next_period_date_prediction": {
+    "derivation": "next_period_date = last_period_start + predicted_cycle_length, exactly as computed in main.py /predict. Day-level error is therefore identical to cycle_length_regressor above.",
+    "test_set_size": 15,
+    "mae_days": 6.0,
+    "rmse_days": 9.96,
+    "r2": -0.0785,
+    "within_1_day_pct": 6.67,
+    "within_3_day_pct": 66.67,
+    "baseline": {
+      "description": "naive baseline: assume next period is always 28 days after the last one",
+      "mae_days": 6.133,
+      "rmse_days": 9.771,
+      "r2": -0.0379,
+      "within_1_day_pct": 13.33,
+      "within_3_day_pct": 40.0
+    },
+    "beats_baseline": true
+  }
+}

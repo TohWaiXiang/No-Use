@@ -66,49 +66,7 @@ def add_cycle_day(df):
     return df
 
 
-df = pd.read_csv('data/hormones_and_selfreport.csv')
-
-df['flow_volume'] = encode_scale(df['flow_volume'], FLOW_VOLUME_SCALE)
-for col in LIKERT_COLUMNS:
-    df[col] = encode_scale(df[col], LIKERT_SCALE)
-
-df = add_cycle_day(df)
-df = df.dropna(subset=['phase', *FEATURE_COLUMNS])
-
-flow_color_encoder = LabelEncoder().fit(df['flow_color'])
-df['flow_color'] = flow_color_encoder.transform(df['flow_color'])
-
-X = df[FEATURE_COLUMNS]
-label_encoder = LabelEncoder()
-y = label_encoder.fit_transform(df['phase'])
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
-
-model = GradientBoostingClassifier(
-    n_estimators=200,
-    learning_rate=0.05,
-    max_depth=4,
-    random_state=42,
-)
-
-model.fit(X_train, y_train)
-pred = model.predict(X_test)
-acc = accuracy_score(y_test, pred)
-print(f'Model trained on {len(df)} real records. Accuracy: {acc:.2%}')
-print(classification_report(y_test, pred, target_names=label_encoder.classes_))
-
-joblib.dump({
-    'model': model,
-    'label_encoder': label_encoder,
-    'flow_color_encoder': flow_color_encoder,
-    'feature_order': FEATURE_COLUMNS,
-}, 'cycle_model.pkl')
-print('Model saved to cycle_model.pkl')
-
-
-# ── Next-cycle-length regressor ──────────────────────────────────────
+# ── Next-cycle-length regressor feature set ──────────────────────────
 # Predicts how many days until the next period, from age + this cycle's
 # average stress/sleep/symptom severity. Weight and medication are NOT
 # included: the dataset has no such columns, so training on them would be
@@ -143,29 +101,75 @@ def build_cycle_length_dataset(daily_df, subject_info):
     return pd.DataFrame(rows)
 
 
-subject_info = pd.read_csv('data/subject-info.csv')
-length_df = build_cycle_length_dataset(df, subject_info)
+def main():
+    df = pd.read_csv('data/hormones_and_selfreport.csv')
 
-X_len = length_df[LENGTH_FEATURE_COLUMNS]
-y_len = length_df['cycle_length']
+    df['flow_volume'] = encode_scale(df['flow_volume'], FLOW_VOLUME_SCALE)
+    for col in LIKERT_COLUMNS:
+        df[col] = encode_scale(df[col], LIKERT_SCALE)
 
-X_len_train, X_len_test, y_len_train, y_len_test = train_test_split(
-    X_len, y_len, test_size=0.2, random_state=42
-)
+    df = add_cycle_day(df)
+    df = df.dropna(subset=['phase', *FEATURE_COLUMNS])
 
-length_model = GradientBoostingRegressor(
-    n_estimators=200,
-    learning_rate=0.05,
-    max_depth=3,
-    random_state=42,
-)
-length_model.fit(X_len_train, y_len_train)
-len_pred = length_model.predict(X_len_test)
-mae = mean_absolute_error(y_len_test, len_pred)
-print(f'Cycle-length model trained on {len(length_df)} cycles. MAE: {mae:.2f} days')
+    flow_color_encoder = LabelEncoder().fit(df['flow_color'])
+    df['flow_color'] = flow_color_encoder.transform(df['flow_color'])
 
-joblib.dump({
-    'model': length_model,
-    'feature_order': LENGTH_FEATURE_COLUMNS,
-}, 'cycle_length_model.pkl')
-print('Model saved to cycle_length_model.pkl')
+    X = df[FEATURE_COLUMNS]
+    label_encoder = LabelEncoder()
+    y = label_encoder.fit_transform(df['phase'])
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+
+    model = GradientBoostingClassifier(
+        n_estimators=200,
+        learning_rate=0.05,
+        max_depth=4,
+        random_state=42,
+    )
+
+    model.fit(X_train, y_train)
+    pred = model.predict(X_test)
+    acc = accuracy_score(y_test, pred)
+    print(f'Model trained on {len(df)} real records. Accuracy: {acc:.2%}')
+    print(classification_report(y_test, pred, target_names=label_encoder.classes_))
+
+    joblib.dump({
+        'model': model,
+        'label_encoder': label_encoder,
+        'flow_color_encoder': flow_color_encoder,
+        'feature_order': FEATURE_COLUMNS,
+    }, 'cycle_model.pkl')
+    print('Model saved to cycle_model.pkl')
+
+    subject_info = pd.read_csv('data/subject-info.csv')
+    length_df = build_cycle_length_dataset(df, subject_info)
+
+    X_len = length_df[LENGTH_FEATURE_COLUMNS]
+    y_len = length_df['cycle_length']
+
+    X_len_train, X_len_test, y_len_train, y_len_test = train_test_split(
+        X_len, y_len, test_size=0.2, random_state=42
+    )
+
+    length_model = GradientBoostingRegressor(
+        n_estimators=200,
+        learning_rate=0.05,
+        max_depth=3,
+        random_state=42,
+    )
+    length_model.fit(X_len_train, y_len_train)
+    len_pred = length_model.predict(X_len_test)
+    mae = mean_absolute_error(y_len_test, len_pred)
+    print(f'Cycle-length model trained on {len(length_df)} cycles. MAE: {mae:.2f} days')
+
+    joblib.dump({
+        'model': length_model,
+        'feature_order': LENGTH_FEATURE_COLUMNS,
+    }, 'cycle_length_model.pkl')
+    print('Model saved to cycle_length_model.pkl')
+
+
+if __name__ == '__main__':
+    main()

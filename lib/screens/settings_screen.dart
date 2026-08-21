@@ -226,7 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         iconBg: const Color(0xFFEEEDFE),
                         iconColor: const Color(0xFF7F77DD),
                         title: 'Ovulation Reminder',
-                        subtitle: 'Alert before your fertile window',
+                        subtitle: 'Notify before your fertile window',
                         value: _notifOvulation,
                         onChanged: (v) => _setNotif('notif_ovulation', v),
                       ),

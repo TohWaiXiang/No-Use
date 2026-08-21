@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'wellness_screen.dart';
 import 'chatbot_screen.dart';
-import 'alerts_screen.dart';
+import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import 'journal_screen.dart';
 
@@ -21,7 +21,7 @@ class _MainScaffoldState extends State<MainScaffold> {
     const WellnessScreen(),
     const ChatbotScreen(),
     const JournalScreen(),
-    const AlertsScreen(),
+    const NotificationsScreen(),
     const ProfileScreen(),
   ];
 
@@ -58,7 +58,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications_none),
-            label: 'Alerts',
+            label: 'Notifications',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

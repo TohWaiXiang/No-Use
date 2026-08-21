@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -8,7 +9,7 @@ import 'package:timezone/timezone.dart' as tz;
 /// Schedules and manages the app's real local device reminders (period,
 /// ovulation, daily wellness check-in and daily AI insight tip), persists
 /// which of them the user has enabled, and mirrors each one into
-/// users/{uid}/alerts so the in-app Alerts tab reflects real reminders
+/// users/{uid}/alerts so the in-app Notifications tab reflects real reminders
 /// instead of a mock list.
 class NotificationService {
   NotificationService._();
@@ -29,6 +30,11 @@ class NotificationService {
   static const _keyPeriodDate = 'predicted_period_date';
   static const _keyOvulationDate = 'predicted_ovulation_date';
 
+  /// How close to the reminder's fire date it must be before it's mirrored
+  /// into the in-app Notifications tab. Keeps that list from filling up with
+  /// reminders scheduled weeks out the moment a prediction updates.
+  static const _nearWindow = Duration(days: 3);
+
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
@@ -36,6 +42,23 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
     tz_data.initializeTimeZones();
+    try {
+      final deviceTimeZone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(deviceTimeZone));
+    } catch (_) {
+      // Identifier lookup failed (unrecognized id on some OEMs). Falling
+      // through to the timezone package's UTC default would silently shift
+      // every "9am"/"7:30pm" reminder by the device's real UTC offset, so
+      // approximate the device's local time via its wall-clock offset
+      // instead — accurate to the hour, which is far better than UTC.
+      try {
+        final offsetHours = DateTime.now().timeZoneOffset.inHours;
+        final sign = offsetHours >= 0 ? '-' : '+';
+        tz.setLocalLocation(tz.getLocation('Etc/GMT$sign${offsetHours.abs()}'));
+      } catch (_) {
+        // Truly unresolvable; UTC default remains.
+      }
+    }
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
@@ -137,8 +160,8 @@ class NotificationService {
       body: body,
       date: reminderDate,
     );
-    if (scheduled) {
-      await _recordAlert(
+    if (scheduled && _isNear(reminderDate)) {
+      await _recordNotification(
         id: 'period_${_dateKey(periodStart)}',
         title: title,
         body: body,
@@ -169,8 +192,8 @@ class NotificationService {
       body: body,
       date: reminderDate,
     );
-    if (scheduled) {
-      await _recordAlert(
+    if (scheduled && _isNear(reminderDate)) {
+      await _recordNotification(
         id: 'ovulation_${_dateKey(ovulation)}',
         title: title,
         body: body,
@@ -190,7 +213,7 @@ class NotificationService {
       hour: 19,
       minute: 30,
     );
-    await _recordAlert(
+    await _recordNotification(
       id: 'wellness_${_dateKey(scheduled)}',
       title: title,
       body: body,
@@ -209,7 +232,7 @@ class NotificationService {
       hour: 9,
       minute: 0,
     );
-    await _recordAlert(
+    await _recordNotification(
       id: 'ai_${_dateKey(scheduled)}',
       title: title,
       body: body,
@@ -269,13 +292,13 @@ class NotificationService {
     return scheduled;
   }
 
-  /// Upserts users/{uid}/alerts/{id} so the Alerts tab shows this reminder.
-  /// [id] is deterministic per real event (e.g. the predicted period date),
-  /// so re-scheduling the same event is idempotent and never spawns
-  /// duplicates, and re-tapping doesn't reset a previously-read alert.
+  /// Upserts users/{uid}/alerts/{id} so the Notifications tab shows this
+  /// reminder. [id] is deterministic per real event (e.g. the predicted
+  /// period date), so re-scheduling the same event is idempotent and never
+  /// spawns duplicates, and re-tapping doesn't reset a previously-read entry.
   /// Best-effort: not signed in, or a Firestore error, just skips silently —
   /// the OS-level reminder above is unaffected either way.
-  Future<void> _recordAlert({
+  Future<void> _recordNotification({
     required String id,
     required String title,
     required String body,
@@ -303,9 +326,12 @@ class NotificationService {
         await ref.set({...content, 'read': false, 'createdAt': FieldValue.serverTimestamp()});
       }
     } catch (_) {
-      // Alerts tab just won't show this one; the device reminder still fires.
+      // Notifications tab just won't show this one; the device reminder still fires.
     }
   }
+
+  bool _isNear(DateTime date) =>
+      date.difference(DateTime.now()) <= _nearWindow;
 
   static String _dateKey(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

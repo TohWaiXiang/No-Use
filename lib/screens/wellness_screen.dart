@@ -25,6 +25,7 @@ class _WellnessScreenState extends State<WellnessScreen> {
   int? stressLevel; // 0-5, from the profile's onboarding check-in.
   String? wellnessPlan;
   bool loadingWellnessPlan = false;
+  bool wellnessPlanError = false;
 
   // Yoga levels are one pose each, but `durationMinutes` is total session
   // time, not one continuous hold — `guide` spells out the actual
@@ -250,10 +251,17 @@ class _WellnessScreenState extends State<WellnessScreen> {
           .timeout(const Duration(seconds: 20));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() => wellnessPlan = data['text'] as String?);
+        setState(() {
+          wellnessPlan = data['text'] as String?;
+          wellnessPlanError = false;
+        });
+      } else {
+        setState(() => wellnessPlanError = true);
       }
     } catch (_) {
-      // Silent — this is a bonus card, not core functionality.
+      // Network/timeout — not core functionality, but still worth telling
+      // the user this failed rather than the card just vanishing.
+      setState(() => wellnessPlanError = true);
     } finally {
       if (mounted) setState(() => loadingWellnessPlan = false);
     }
@@ -461,7 +469,9 @@ class _WellnessScreenState extends State<WellnessScreen> {
   }
 
   Widget _buildWellnessPlanCard() {
-    if (wellnessPlan == null && !loadingWellnessPlan) return const SizedBox.shrink();
+    if (wellnessPlan == null && !loadingWellnessPlan && !wellnessPlanError) {
+      return const SizedBox.shrink();
+    }
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       child: Padding(
@@ -491,7 +501,10 @@ class _WellnessScreenState extends State<WellnessScreen> {
               constraints: const BoxConstraints(maxHeight: 220),
               child: SingleChildScrollView(
                 child: MarkdownBody(
-                  data: wellnessPlan ?? 'Generating your plan...',
+                  data: wellnessPlan ??
+                      (wellnessPlanError
+                          ? "Couldn't load your wellness plan right now — try again shortly."
+                          : 'Generating your plan...'),
                   styleSheet: MarkdownStyleSheet(
                     p: const TextStyle(fontSize: 13, height: 1.5),
                     strong: const TextStyle(fontSize: 13, height: 1.5, fontWeight: FontWeight.bold),

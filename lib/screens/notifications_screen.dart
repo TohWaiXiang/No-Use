@@ -6,14 +6,18 @@ import 'package:flutter/material.dart';
 /// ovulation, wellness check-in, AI insight tip), mirrored into
 /// users/{uid}/alerts. No mock data — an empty list here means no reminder
 /// has actually fired yet.
-class AlertsScreen extends StatefulWidget {
-  const AlertsScreen({super.key});
+///
+/// The Firestore collection stays named `alerts` (renaming it would orphan
+/// every user's existing notification history); only the UI-facing name
+/// changed to Notifications.
+class NotificationsScreen extends StatefulWidget {
+  const NotificationsScreen({super.key});
 
   @override
-  State<AlertsScreen> createState() => _AlertsScreenState();
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _AlertsScreenState extends State<AlertsScreen> {
+class _NotificationsScreenState extends State<NotificationsScreen> {
   String _filter = 'All';
   final List<String> _filters = ['All', 'Cycle', 'Wellness', 'Insight'];
 
@@ -70,7 +74,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Alerts',
+                    'Notifications',
                     style: TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.w600,
@@ -125,12 +129,12 @@ class _AlertsScreenState extends State<AlertsScreen> {
               ),
             ),
 
-            // Alert list
+            // Notification list
             Expanded(
               child: uid == null
                   ? const Center(
                       child: Text(
-                        'Sign in to see your alerts',
+                        'Sign in to see your notifications',
                         style: TextStyle(color: Colors.grey),
                       ),
                     )
@@ -151,7 +155,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         if (snapshot.hasError) {
                           return Center(
                             child: Text(
-                              'Could not load alerts: ${snapshot.error}',
+                              'Could not load notifications: ${snapshot.error}',
                               style: const TextStyle(color: Colors.grey),
                             ),
                           );
@@ -165,13 +169,18 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         if (filtered.isEmpty) {
                           return const Center(
                             child: Text(
-                              'No alerts yet',
+                              'No notifications yet',
                               style: TextStyle(color: Colors.grey),
                             ),
                           );
                         }
-                        return ListView.builder(
+                        return ListView.separated(
                           itemCount: filtered.length,
+                          separatorBuilder: (_, _) => Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Colors.grey.shade100,
+                          ),
                           itemBuilder: (_, i) {
                             final doc = filtered[i];
                             final a = doc.data();

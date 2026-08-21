@@ -11,6 +11,7 @@ import os
 import re
 import json
 import requests
+import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
@@ -36,15 +37,22 @@ db = firestore.client()
 # ~300s retry budget regardless of any per-call timeout. Every blocking
 # Firestore call in this file should go through _ff() so a credential
 # outage degrades in seconds instead of minutes.
-_FIRESTORE_TIMEOUT = 3
+_FIRESTORE_TIMEOUT = 8
 _firestore_pool = ThreadPoolExecutor(max_workers=16)
 
 
-def _ff(fn, default=None, timeout=_FIRESTORE_TIMEOUT):
+def _ff(fn, default=None, timeout=_FIRESTORE_TIMEOUT, critical=False):
+    """critical=True raises a 503 instead of swallowing, for callers where a
+    failed fetch must not be presented to the user as "you have no data"."""
     try:
         return _firestore_pool.submit(fn).result(timeout=timeout)
     except Exception as e:
         print('Firestore call failed/timed out:', e)
+        if critical:
+            raise HTTPException(
+                status_code=503,
+                detail='Could not reach your health data right now. Please try again.',
+            )
         return default
 
 model_bundle        = joblib.load('model/cycle_model.pkl')
@@ -318,8 +326,12 @@ def predict_cycle(req: PredictRequest):
         'predicted_cycle_length': predicted_cycle_length,
     }
 
-def _build_chat_context(user_id: str):
-    """Pulls this user's Firestore data and returns (context_summary, prediction_dict)."""
+def _build_chat_context(user_id: str, critical: bool = False):
+    """Pulls this user's Firestore data and returns (context_summary, prediction_dict).
+
+    critical=True (used by the recommendations/summary/wellness-plan cards,
+    never by /chatbot) makes a failed symptom/medication log fetch raise a
+    503 instead of silently reading as "nothing logged"."""
     parts = []
 
     user_doc = _ff(lambda: db.collection('users').document(user_id).get())
@@ -360,7 +372,7 @@ def _build_chat_context(user_id: str):
         .collection('symptom_logs')
         .order_by('date', direction=firestore.Query.DESCENDING)
         .limit(5).stream()
-    ), default=[])
+    ), default=[], critical=critical)
     logs = [d.to_dict() for d in logs_snap]
     if logs:
         parts.append('Recent symptom logs (most recent first):')
@@ -369,6 +381,21 @@ def _build_chat_context(user_id: str):
             parts.append(
                 f"- {log.get('date')}: mood={log.get('mood')}, flow={log.get('flow')}, "
                 f"symptoms={symptoms}, notes={log.get('notes')}"
+            )
+
+    meds_snap = _ff(lambda: list(
+        db.collection('users').document(user_id)
+        .collection('medication_logs')
+        .order_by('date', direction=firestore.Query.DESCENDING)
+        .limit(5).stream()
+    ), default=[], critical=critical)
+    meds = [d.to_dict() for d in meds_snap]
+    if meds:
+        parts.append('Recent medication logs (most recent first):')
+        for med in meds:
+            parts.append(
+                f"- {med.get('date')}: {med.get('name')} ({med.get('dosage')}), "
+                f"remarks={med.get('remarks')}"
             )
 
     summary = '\n'.join(parts) if parts else 'No user health data is available yet.'
@@ -414,50 +441,91 @@ def _trend_stats_from_logs(logs: list[dict], today) -> str:
 
 
 def _weekly_trend_summary(user_id: str) -> str:
+    # Only called by the recommendations/summary/wellness-plan cards
+    # (never /chatbot), so a failed fetch is always safe to surface as 503
+    # rather than silently reading as "no logs this month".
     docs = _ff(lambda: list(
         db.collection('users').document(user_id)
         .collection('symptom_logs')
         .order_by('date', direction=firestore.Query.DESCENDING)
         .limit(14).stream()
-    ), default=[])
+    ), default=[], critical=True)
     logs = [d.to_dict() for d in docs]
     if not logs:
         return 'No symptom logs available yet this month.'
     return _trend_stats_from_logs(logs, datetime.now().date())
 
 
-def _call_openai(messages: list[dict]) -> str:
-    if not OPENAI_API_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail='OPENAI_API_KEY is not configured on the server.',
-        )
-    try:
-        response = requests.post(
-            'https://api.openai.com/v1/chat/completions',
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {OPENAI_API_KEY}',
-            },
-            json={'model': 'gpt-4o-mini', 'messages': messages},
-            timeout=20,
-        )
-    except requests.RequestException as e:
-        raise HTTPException(status_code=502, detail=f'Could not reach OpenAI: {e}')
+# Retried once on network errors and on OpenAI status codes that are usually
+# transient (rate limit / server-side hiccups). Local ML prediction (/predict)
+# never calls this function, so /predict keeps working regardless of OpenAI's
+# availability.
+_OPENAI_MAX_ATTEMPTS = 2
+_OPENAI_RETRY_STATUS = {429, 500, 502, 503, 504}
+_OPENAI_RETRY_BACKOFF_SECONDS = 1.5
 
-    if response.status_code != 200:
-        detail = 'OpenAI request failed.'
+
+def _call_openai(messages: list[dict]) -> str:
+    """Calls OpenAI chat completions. On any failure, raises HTTPException
+    with a safe, user-friendly `detail` — the real exception/status is
+    printed server-side for debugging. OPENAI_API_KEY is never included in
+    any exception message, log line, or HTTP response.
+    """
+    if not OPENAI_API_KEY:
+        print('_call_openai: OPENAI_API_KEY is not set.')
+        raise HTTPException(
+            status_code=503,
+            detail='The AI assistant is not configured on the server right now. Please try again later.',
+        )
+
+    for attempt in range(1, _OPENAI_MAX_ATTEMPTS + 1):
         try:
-            detail = response.json().get('error', {}).get('message', detail)
+            response = requests.post(
+                'https://api.openai.com/v1/chat/completions',
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {OPENAI_API_KEY}',
+                },
+                json={'model': 'gpt-4o-mini', 'messages': messages},
+                timeout=20,
+            )
+        except requests.RequestException as e:
+            print(f'_call_openai: network error on attempt {attempt}/{_OPENAI_MAX_ATTEMPTS}: {e}')
+            if attempt < _OPENAI_MAX_ATTEMPTS:
+                time.sleep(_OPENAI_RETRY_BACKOFF_SECONDS * attempt)
+                continue
+            raise HTTPException(
+                status_code=503,
+                detail='Could not reach the AI assistant right now. Please try again in a moment.',
+            )
+
+        if response.status_code == 200:
+            raw = response.json()['choices'][0]['message']['content'].strip()
+            if raw.startswith('```'):
+                raw = re.sub(r'^```[a-zA-Z]*\n?', '', raw)
+                raw = re.sub(r'```\s*$', '', raw).strip()
+            return raw
+
+        server_detail = 'OpenAI request failed.'
+        try:
+            server_detail = response.json().get('error', {}).get('message', server_detail)
         except ValueError:
             pass
-        raise HTTPException(status_code=response.status_code, detail=detail)
+        print(f'_call_openai: OpenAI returned {response.status_code} on attempt '
+              f'{attempt}/{_OPENAI_MAX_ATTEMPTS}: {server_detail}')
 
-    raw = response.json()['choices'][0]['message']['content'].strip()
-    if raw.startswith('```'):
-        raw = re.sub(r'^```[a-zA-Z]*\n?', '', raw)
-        raw = re.sub(r'```\s*$', '', raw).strip()
-    return raw
+        if response.status_code in _OPENAI_RETRY_STATUS and attempt < _OPENAI_MAX_ATTEMPTS:
+            time.sleep(_OPENAI_RETRY_BACKOFF_SECONDS * attempt)
+            continue
+
+        if response.status_code == 429:
+            raise HTTPException(status_code=429, detail='The AI assistant is busy right now. Please try again shortly.')
+        if response.status_code in (401, 403):
+            raise HTTPException(status_code=503, detail='The AI assistant is not configured correctly on the server.')
+        raise HTTPException(status_code=503, detail='The AI assistant is temporarily unavailable. Please try again later.')
+
+    # Unreachable (the loop always returns or raises), kept for clarity.
+    raise HTTPException(status_code=503, detail='The AI assistant is temporarily unavailable. Please try again later.')
 
 
 AI_DISCLAIMER = (
@@ -497,20 +565,20 @@ class UserIdRequest(BaseModel):
 
 @app.post('/ai/recommendations')
 def ai_recommendations(req: UserIdRequest):
-    context_summary, _ = _build_chat_context(req.user_id)
+    context_summary, _ = _build_chat_context(req.user_id, critical=True)
     messages = [{'role': 'system', 'content': f'{RECOMMENDATIONS_SYSTEM_PROMPT}\n\n{context_summary}'}]
     return {'text': _call_openai(messages)}
 
 @app.post('/ai/weekly-summary')
 def ai_weekly_summary(req: UserIdRequest):
-    context_summary, _ = _build_chat_context(req.user_id)
+    context_summary, _ = _build_chat_context(req.user_id, critical=True)
     trend_summary = _weekly_trend_summary(req.user_id)
     messages = [{'role': 'system', 'content': f'{WEEKLY_SUMMARY_SYSTEM_PROMPT}\n\n{context_summary}\n\n{trend_summary}'}]
     return {'text': _call_openai(messages)}
 
 @app.post('/ai/wellness-plan')
 def ai_wellness_plan(req: UserIdRequest):
-    context_summary, _ = _build_chat_context(req.user_id)
+    context_summary, _ = _build_chat_context(req.user_id, critical=True)
     trend_summary = _weekly_trend_summary(req.user_id)
     messages = [{'role': 'system', 'content': f'{WELLNESS_PLAN_SYSTEM_PROMPT}\n\n{context_summary}\n\n{trend_summary}'}]
     return {'text': _call_openai(messages)}

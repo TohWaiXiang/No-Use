@@ -1,0 +1,10 @@
+id,category,endpoint,human_relevance,automated_relevance,diff_relevance,human_personalization,automated_personalization,diff_personalization,human_helpfulness,automated_helpfulness,diff_helpfulness,human_clarity,automated_clarity,diff_clarity,human_safety,automated_safety,diff_safety,human_overall,automated_overall,human_comments
+TC01,general_recommendations,recommendations,4,5,-1,4,5,-1,4,5,-1,4,5,-1,4,5,-1,4.0,5.0,personlized result can help user to get know of their own body
+TC11,weekly_summary_improving,weekly_summary,4,5,-1,4,5,-1,4,4,0,4,5,-1,4,5,-1,4.0,4.8,get the latest info for each week
+TC19,wellness_plan_menstrual_low_energy,wellness_plan,4,5,-1,4,5,-1,4,5,-1,4,5,-1,4,5,-1,4.0,5.0,So user can know what wellness exercise they can do to keep health
+TC27,cycle_phase_question,chatbot,5,5,0,5,3,2,5,2,3,5,3,2,5,5,0,5.0,3.6,
+TC02,high_stress_low_sleep_recommendations,recommendations,5,5,0,5,5,0,5,5,0,5,5,0,5,5,0,5.0,5.0,
+TC12,weekly_summary_worsening,weekly_summary,4,5,-1,4,5,-1,4,4,0,4,5,-1,4,5,-1,4.0,4.8,
+TC20,wellness_plan_high_stress,wellness_plan,4,5,-1,4,5,-1,4,5,-1,4,5,-1,4,5,-1,4.0,5.0,
+TC28,fertile_window_question,chatbot,4,5,-1,4,5,-1,4,5,-1,4,5,-1,4,5,-1,4.0,5.0,user can predict the coming period
+TC03,regular_healthy_recommendations,recommendations,5,5,0,4,5,-1,4,5,-1,5,5,0,5,5,0,4.6,5.0,"Relevant and clear recommendations, although some nutrition and fertility-related suggestions are relatively general."

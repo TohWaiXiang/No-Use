@@ -49,7 +49,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _username = profile['username'] ?? 'User';
         _email = profile['email'] ?? '—';
         _age = (profile['age'] ?? '—').toString();
-        _cycleLength = (profile['avg_cycle_length'] ?? 28).toString();
+        _cycleLength = ((profile['avg_cycle_length'] ?? 28) as num)
+            .round()
+            .toString();
         _periodDur = ((profile['avg_period_duration'] ?? 5) as num)
             .round()
             .toString();
@@ -164,7 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Snapshot of all related health metrics at the time of this change,
             // useful for tracking trends in the ML model later.
             'snapshot': {
-              'cycle_length': double.tryParse(_cycleLength) ?? 28.0,
+              'cycle_length': int.tryParse(_cycleLength) ?? 28,
               'period_duration': int.tryParse(_periodDur) ?? 5,
               'stress_level': _stressLevel,
               'sleep_hours': _sleepHours,
@@ -366,7 +368,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 '$_cycleLength days',
                 onTap: () => _showEditField('Cycle Length', _cycleLength, (v) {
                   setState(() => _cycleLength = v);
-                  _saveField('avg_cycle_length', double.tryParse(v) ?? 28.0);
+                  _saveField('avg_cycle_length', int.tryParse(v) ?? 28);
                 }, keyboard: TextInputType.number),
               ),
               _editRow(
