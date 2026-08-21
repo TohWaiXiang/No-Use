@@ -23,6 +23,7 @@ class _WellnessScreenState extends State<WellnessScreen> {
   bool isLoading = true;
   String currentPhase = '—';
   int? stressLevel; // 0-5, from the profile's onboarding check-in.
+  List<String> todaySymptoms = [];
   String? wellnessPlan;
   bool loadingWellnessPlan = false;
   bool wellnessPlanError = false;
@@ -184,14 +185,23 @@ class _WellnessScreenState extends State<WellnessScreen> {
 
   bool get _isMenstrualPhase => currentPhase == 'Menstrual';
 
+  // Symptoms (see _availableSymptoms in home_screen.dart) that mean today's
+  // body isn't up for an energetic session, regardless of cycle phase.
+  static const _lowEnergySymptoms = {
+    'Cramps', 'Headache', 'Fatigue', 'Back pain', 'Nausea', 'Insomnia',
+    'Heavy flow', 'Anxiety',
+  };
+
   /// Today's suggested energy level ('low'/'medium'/'high'), used only to
   /// highlight one already-unlocked level as "Recommended today" — never to
-  /// gate access. Combines the predicted cycle phase with reported stress
-  /// (from onboarding) rather than treating phase as the sole signal, since
-  /// there's no clinical basis for "phase X requires pose Y".
+  /// gate access. Combines the predicted cycle phase, reported stress (from
+  /// onboarding), and today's logged symptoms rather than treating phase as
+  /// the sole signal, since there's no clinical basis for "phase X requires
+  /// pose Y".
   String get _energyLevel {
     if (currentPhase == 'Menstrual') return 'low';
     if ((stressLevel ?? 0) >= 3) return 'low';
+    if (todaySymptoms.any(_lowEnergySymptoms.contains)) return 'low';
     if (currentPhase == 'Follicular' || currentPhase == 'Ovulation') {
       return 'high';
     }
@@ -216,6 +226,17 @@ class _WellnessScreenState extends State<WellnessScreen> {
           .collection('predictions')
           .doc('latest')
           .get();
+      // Symptom logs are keyed by date (see home_screen.dart's _saveSymptomLog),
+      // so today's entry — if any — is a direct doc lookup.
+      final now = DateTime.now();
+      final todayKey =
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final symptomDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('symptom_logs')
+          .doc(todayKey)
+          .get();
 
       if (!mounted) return;
 
@@ -226,6 +247,7 @@ class _WellnessScreenState extends State<WellnessScreen> {
         completedLevels = List<int>.from(state['completed_levels'] as List);
         currentPhase = predictionDoc.data()?['current_phase']?.toString() ?? '—';
         stressLevel = (userDoc.data()?['stress_level'] as num?)?.toInt();
+        todaySymptoms = List<String>.from(symptomDoc.data()?['symptoms'] ?? []);
       });
 
       _fetchWellnessPlan(uid);
